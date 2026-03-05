@@ -51,6 +51,16 @@ xcodebuild -project novel/novel.xcodeproj -scheme novelTests -destination 'platf
 ### Theme
 `ReadingTheme` enum (`novel/novel/Theme/ReadingTheme.swift`) — four themes: `.light`, `.sepia`, `.gray`, `.dark`. Provides `backgroundColor`, `textColor`, `highlightColor`, `toolbarStyle` (Material).
 
+## UI/UX 設計規範
+
+- 本專案使用 uiux pro max skill 進行 UI 設計
+- 設計簡報見 DESIGN_BRIEF.md
+- 所有 UI 元件必須支援四套閱讀主題色彩切換
+- 閱讀器是核心畫面，任何 UI 變更都要確保不影響閱讀體驗
+- 動畫使用 SwiftUI 原生 animation，不引入 Lottie 等第三方動畫庫
+- 圖標統一使用 SF Symbols
+- 所有中文介面字串用 LocalizedStringKey
+
 ## Important Conventions
 
 - `TTSService` is instantiated once in `novelApp` and passed as environment object — never instantiate it inside views.
