@@ -27,6 +27,8 @@ xcodebuild -project novel/novel.xcodeproj -scheme novel -destination 'platform=i
 xcodebuild -project novel/novel.xcodeproj -scheme novelTests -destination 'platform=iOS Simulator,name=iPhone 16' test
 ```
 
+> **新增 Swift 檔案不需要修改 `project.pbxproj`。** 本專案使用 Xcode 16+ 的 `PBXFileSystemSynchronizedRootGroup`，`novel/novel/` 目錄下的所有 `.swift` 檔案會自動被 Xcode 識別並納入編譯。直接建立檔案即可。
+
 ## Architecture
 
 ### Data Flow
