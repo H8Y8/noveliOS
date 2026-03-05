@@ -1,6 +1,9 @@
 import SwiftUI
 
 /// 捲動式閱讀內容視圖
+/// - 使用 NNFont/NNSpacing token 確保排版一致性
+/// - TTS 高亮透過柔和動畫切換，避免視覺跳動
+/// - 頂底預留工具列高度，確保首末段落不被遮擋
 struct ScrollReaderView: View {
     let paragraphs: [String]
     let theme: ReadingTheme
@@ -10,53 +13,83 @@ struct ScrollReaderView: View {
     let highlightedParagraphIndex: Int?
     @Binding var visibleParagraphIndex: Int
 
+    // MARK: - Body
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: fontSize * 0.8) {
+                LazyVStack(alignment: .leading, spacing: paragraphSpacing) {
+                    // 頂部安全距離（工具列高 + 漸層高 + 呼吸空間）
+                    Color.clear.frame(height: NNSpacing.toolbarHeight + 28 + NNSpacing.md)
+
                     ForEach(Array(paragraphs.enumerated()), id: \.offset) { index, paragraph in
-                        Text(paragraph)
-                            .font(readerFont)
-                            .foregroundStyle(theme.textColor)
-                            .lineSpacing(fontSize * (lineSpacing - 1.0))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 4)
-                            .background(
-                                index == highlightedParagraphIndex
-                                    ? theme.highlightColor
-                                    : Color.clear
-                            )
-                            .id(index)
-                            .onAppear {
-                                visibleParagraphIndex = index
-                            }
+                        paragraphView(index: index, text: paragraph)
                     }
+
+                    // 底部安全距離（底部工具列淨空）
+                    Color.clear.frame(height: NNSpacing.bottomToolbarHeight + 32 + NNSpacing.md)
                 }
-                .padding(.vertical, 20)
             }
             .onChange(of: highlightedParagraphIndex) { _, newIndex in
+                // TTS 推進時自動捲動至當前段落
                 if let newIndex {
-                    withAnimation(.easeInOut(duration: 0.3)) {
+                    withAnimation(NNAnimation.ttsHighlight) {
                         proxy.scrollTo(newIndex, anchor: .center)
                     }
                 }
             }
             .onAppear {
-                // 恢復上次閱讀位置
-                if visibleParagraphIndex > 0 && visibleParagraphIndex < paragraphs.count {
+                // 恢復上次閱讀位置（不含動畫，避免啟動時畫面閃跳）
+                if visibleParagraphIndex > 0, visibleParagraphIndex < paragraphs.count {
                     proxy.scrollTo(visibleParagraphIndex, anchor: .top)
                 }
             }
         }
     }
 
+    // MARK: - Paragraph View
+
+    @ViewBuilder
+    private func paragraphView(index: Int, text: String) -> some View {
+        let isHighlighted = index == highlightedParagraphIndex
+
+        Text(text)
+            .font(readerFont)
+            .foregroundStyle(theme.textColor)
+            .lineSpacing(lineSpacingPoints)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, NNSpacing.readerHorizontal)
+            .padding(.vertical, NNSpacing.xxs)
+            // TTS 高亮：柔和圓角底色，使用主題定義的 highlightColor（非螢光）
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(isHighlighted ? theme.highlightColor : Color.clear)
+                    .padding(.horizontal, NNSpacing.readerHorizontal - 6)
+                    .animation(NNAnimation.ttsHighlight, value: highlightedParagraphIndex)
+            )
+            .id(index)
+            .onAppear {
+                visibleParagraphIndex = index
+            }
+    }
+
+    // MARK: - Computed Values
+
+    /// 段落間距：字號 × 係數，讓中文段落呼吸感適中
+    private var paragraphSpacing: CGFloat {
+        CGFloat(fontSize) * 0.55 + 4
+    }
+
+    /// 行距點數：由乘數換算（1.2x ~ 2.0x）
+    private var lineSpacingPoints: CGFloat {
+        CGFloat(fontSize) * CGFloat(lineSpacing - 1.0)
+    }
+
+    /// 閱讀字體：透過 NNFont.ReadingFamily 對應，支援 System / PingFang TC / Noto Sans TC
     private var readerFont: Font {
-        switch fontFamily {
-        case "PingFang TC":
-            return .custom("PingFangTC-Regular", size: fontSize)
-        default:
-            return .system(size: fontSize)
-        }
+        NNFont.readerBody(
+            size: CGFloat(fontSize),
+            family: NNFont.ReadingFamily(rawValue: fontFamily) ?? .system
+        )
     }
 }

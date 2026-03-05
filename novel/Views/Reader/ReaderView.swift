@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 import AVFoundation
 
-/// 閱讀器主視圖：管理工具列、設定、章節導航與 TTS 控制
+/// 閱讀器主視圖：全螢幕沉浸式閱讀，工具列點擊切換顯示/隱藏
 struct ReaderView: View {
     @Bindable var book: Book
     @Environment(\.modelContext) private var modelContext
@@ -17,6 +17,8 @@ struct ReaderView: View {
     @State private var visibleParagraphIndex: Int = 0
     @State private var nowPlayingService = NowPlayingService()
     @State private var hasSetupNowPlaying = false
+
+    // MARK: - Derived
 
     private var settings: UserSettings {
         allSettings.first ?? UserSettings()
@@ -41,11 +43,12 @@ struct ReaderView: View {
         return content.paragraphs()
     }
 
+    // MARK: - Body
+
     var body: some View {
-        ZStack {
-            // 背景
-            theme.backgroundColor
-                .ignoresSafeArea()
+        ZStack(alignment: .top) {
+            // 閱讀背景
+            theme.backgroundColor.ignoresSafeArea()
 
             // 閱讀內容
             ScrollReaderView(
@@ -58,19 +61,24 @@ struct ReaderView: View {
                 visibleParagraphIndex: $visibleParagraphIndex
             )
             .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(NNAnimation.toolbarToggle) {
                     showToolbars.toggle()
                 }
             }
 
-            // 工具列覆蓋層
-            if showToolbars {
-                VStack {
+            // 工具列（各自獨立 transition）
+            VStack {
+                if showToolbars {
                     topToolbar
-                    Spacer()
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+                Spacer()
+                if showToolbars {
                     bottomToolbar
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+            .ignoresSafeArea(edges: .vertical)
         }
         .navigationBarHidden(true)
         .statusBarHidden(!showToolbars)
@@ -79,10 +87,8 @@ struct ReaderView: View {
             visibleParagraphIndex = book.lastReadOffset
             ttsService.currentBookId = book.id
 
-            // 確保有 UserSettings
             if allSettings.isEmpty {
-                let newSettings = UserSettings()
-                modelContext.insert(newSettings)
+                modelContext.insert(UserSettings())
             }
 
             setupNowPlaying()
@@ -110,114 +116,180 @@ struct ReaderView: View {
         }
     }
 
-    // MARK: - 上方工具列
+    // MARK: - Top Toolbar
+
     private var topToolbar: some View {
-        HStack {
-            Button {
-                dismiss()
-            } label: {
-                Image(systemName: "chevron.left")
-                    .font(.title3)
-                    .foregroundStyle(theme.textColor)
-            }
-            .accessibilityLabel("返回")
-
-            Spacer()
-
-            Text(currentChapter?.title ?? book.title)
-                .font(.subheadline)
-                .foregroundStyle(theme.textColor)
-                .lineLimit(1)
-
-            Spacer()
-
-            Button {
-                showChapterList = true
-            } label: {
-                Image(systemName: "list.bullet")
-                    .font(.title3)
-                    .foregroundStyle(theme.textColor)
-            }
-            .accessibilityLabel("目錄")
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(theme.toolbarStyle)
-    }
-
-    // MARK: - 下方工具列
-    private var bottomToolbar: some View {
-        VStack(spacing: 12) {
-            // 章節進度滑桿
-            if book.sortedChapters.count > 1 {
-                HStack {
-                    Text("\(currentChapterIndex + 1)")
-                        .font(.caption)
-                        .foregroundStyle(theme.secondaryTextColor)
-                    Slider(
-                        value: Binding(
-                            get: { Double(currentChapterIndex) },
-                            set: { jumpToChapter(Int($0)) }
-                        ),
-                        in: 0...Double(max(book.sortedChapters.count - 1, 1)),
-                        step: 1
-                    )
-                    .tint(theme.textColor.opacity(0.6))
-                    Text("\(book.sortedChapters.count)")
-                        .font(.caption)
-                        .foregroundStyle(theme.secondaryTextColor)
-                }
-                .padding(.horizontal, 16)
-            }
-
-            // TTS 控制列
-            HStack(spacing: 32) {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                // 返回按鈕（44pt 觸控目標）
                 Button {
-                    ttsService.previousParagraph()
+                    dismiss()
                 } label: {
-                    Image(systemName: "backward.fill")
-                        .font(.title3)
+                    Image(systemName: NNSymbol.back)
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundStyle(theme.textColor)
+                        .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
                 }
-                .accessibilityLabel("上一段")
-
-                Button {
-                    toggleTTS()
-                } label: {
-                    Image(systemName: ttsService.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.title)
-                        .foregroundStyle(theme.textColor)
-                }
-                .accessibilityLabel(ttsService.isPlaying ? "暫停" : "播放")
-
-                Button {
-                    ttsService.nextParagraph()
-                } label: {
-                    Image(systemName: "forward.fill")
-                        .font(.title3)
-                        .foregroundStyle(theme.textColor)
-                }
-                .accessibilityLabel("下一段")
+                .accessibilityLabel("返回")
 
                 Spacer()
 
+                // 章節標題
+                Text(currentChapter?.title ?? book.title)
+                    .font(NNFont.uiSubheadline)
+                    .foregroundStyle(theme.secondaryTextColor)
+                    .lineLimit(1)
+                    .padding(.horizontal, NNSpacing.sm)
+
+                Spacer()
+
+                // 目錄按鈕
                 Button {
-                    showSettings = true
+                    showChapterList = true
                 } label: {
-                    Image(systemName: "gearshape")
-                        .font(.title3)
+                    Image(systemName: NNSymbol.chapterList)
+                        .font(.system(size: 17))
                         .foregroundStyle(theme.textColor)
+                        .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
                 }
-                .accessibilityLabel("設定")
+                .accessibilityLabel("目錄")
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 8)
+            .padding(.horizontal, NNSpacing.sm)
+            .frame(height: NNSpacing.toolbarHeight)
+            .background(theme.toolbarStyle)
+
+            // 向下漸層——工具列自然融入文字區域，避免硬邊界
+            LinearGradient(
+                colors: [theme.backgroundColor.opacity(0.5), .clear],
+                startPoint: .top, endPoint: .bottom
+            )
+            .frame(height: 24)
+            .allowsHitTesting(false)
         }
-        .padding(.vertical, 12)
-        .background(theme.toolbarStyle)
     }
 
-    // MARK: - TTS 控制
+    // MARK: - Bottom Toolbar
+
+    private var bottomToolbar: some View {
+        VStack(spacing: 0) {
+            // 向上漸層
+            LinearGradient(
+                colors: [.clear, theme.backgroundColor.opacity(0.75)],
+                startPoint: .top, endPoint: .bottom
+            )
+            .frame(height: 32)
+            .allowsHitTesting(false)
+
+            VStack(spacing: NNSpacing.xs) {
+                // 章節進度滑桿（有多章節時才顯示）
+                if book.sortedChapters.count > 1 {
+                    chapterSlider
+                }
+
+                // TTS 控制列
+                ttsControlRow
+            }
+            .padding(.top, NNSpacing.xs)
+            .padding(.bottom, NNSpacing.sm)
+            .background(theme.toolbarStyle)
+        }
+    }
+
+    // 章節滑桿（含章節名稱與章節計數）
+    private var chapterSlider: some View {
+        VStack(spacing: 3) {
+            Text(currentChapter?.title ?? "")
+                .font(NNFont.uiCaption)
+                .foregroundStyle(theme.secondaryTextColor)
+                .lineLimit(1)
+
+            HStack(spacing: NNSpacing.xs) {
+                Text("\(currentChapterIndex + 1)")
+                    .font(NNFont.uiCaption2)
+                    .foregroundStyle(theme.secondaryTextColor)
+                    .monospacedDigit()
+                    .frame(minWidth: 24, alignment: .trailing)
+
+                Slider(
+                    value: Binding(
+                        get: { Double(currentChapterIndex) },
+                        set: { jumpToChapter(Int($0)) }
+                    ),
+                    in: 0...Double(max(book.sortedChapters.count - 1, 1)),
+                    step: 1
+                )
+                .tint(theme.textColor.opacity(0.45))
+
+                Text("\(book.sortedChapters.count)")
+                    .font(NNFont.uiCaption2)
+                    .foregroundStyle(theme.secondaryTextColor)
+                    .monospacedDigit()
+                    .frame(minWidth: 24, alignment: .leading)
+            }
+            .padding(.horizontal, NNSpacing.md)
+        }
+    }
+
+    // TTS 控制列：⏮  ▶/❚❚  ⏭ ··········· ⚙
+    // 播放鍵居中為主視覺焦點，設定齒輪靠右次要
+    private var ttsControlRow: some View {
+        HStack(spacing: 0) {
+            // 上一段
+            Button {
+                ttsService.previousParagraph()
+            } label: {
+                Image(systemName: NNSymbol.previous)
+                    .font(.system(size: 20))
+                    .foregroundStyle(theme.textColor)
+                    .frame(width: NNSpacing.ttsSecondaryButtonSize,
+                           height: NNSpacing.ttsSecondaryButtonSize)
+            }
+            .accessibilityLabel("上一段")
+
+            Spacer()
+
+            // 播放 / 暫停（主要按鈕，52pt 觸控面積）
+            Button {
+                toggleTTS()
+            } label: {
+                Image(systemName: ttsService.isPlaying ? NNSymbol.pause : NNSymbol.play)
+                    .font(.system(size: 30, weight: .medium))
+                    .foregroundStyle(theme.textColor)
+                    .frame(width: NNSpacing.ttsButtonSize, height: NNSpacing.ttsButtonSize)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel(ttsService.isPlaying ? "暫停" : "播放")
+
+            Spacer()
+
+            // 下一段
+            Button {
+                ttsService.nextParagraph()
+            } label: {
+                Image(systemName: NNSymbol.next)
+                    .font(.system(size: 20))
+                    .foregroundStyle(theme.textColor)
+                    .frame(width: NNSpacing.ttsSecondaryButtonSize,
+                           height: NNSpacing.ttsSecondaryButtonSize)
+            }
+            .accessibilityLabel("下一段")
+
+            // 設定（次要視覺重量，靠右）
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: NNSymbol.settings)
+                    .font(.system(size: 17))
+                    .foregroundStyle(theme.secondaryTextColor)
+                    .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
+            }
+            .accessibilityLabel("設定")
+            .padding(.leading, NNSpacing.xs)
+        }
+        .padding(.horizontal, NNSpacing.lg)
+    }
+
+    // MARK: - TTS Control
 
     private func toggleTTS() {
         if ttsService.isPlaying {
@@ -231,10 +303,7 @@ struct ReaderView: View {
             )
         } else {
             if !ttsService.isPaused {
-                ttsService.loadChapter(
-                    paragraphs: currentParagraphs,
-                    startAt: visibleParagraphIndex
-                )
+                ttsService.loadChapter(paragraphs: currentParagraphs, startAt: visibleParagraphIndex)
                 setupTTSChapterFinished()
             }
             ttsService.play()
@@ -250,7 +319,6 @@ struct ReaderView: View {
 
     private func setupTTSChapterFinished() {
         ttsService.onChapterFinished = { [self] in
-            // 自動跳到下一章
             if currentChapterIndex < book.sortedChapters.count - 1 {
                 jumpToChapter(currentChapterIndex + 1)
                 ttsService.loadChapter(paragraphs: currentParagraphs, startAt: 0)
@@ -272,14 +340,14 @@ struct ReaderView: View {
         hasSetupNowPlaying = true
 
         nowPlayingService.setupRemoteCommands(
-            onPlay: { toggleTTS() },
-            onPause: { toggleTTS() },
-            onNextTrack: { ttsService.nextParagraph() },
+            onPlay:          { toggleTTS() },
+            onPause:         { toggleTTS() },
+            onNextTrack:     { ttsService.nextParagraph() },
             onPreviousTrack: { ttsService.previousParagraph() }
         )
     }
 
-    // MARK: - 章節導航
+    // MARK: - Chapter Navigation
 
     private func jumpToChapter(_ index: Int) {
         guard index >= 0, index < book.sortedChapters.count else { return }
@@ -295,40 +363,28 @@ struct ReaderView: View {
         saveProgress()
     }
 
-    // MARK: - 進度儲存
-
-    private var saveTask: Task<Void, Never>? {
-        get { nil }
-        set { }
-    }
+    // MARK: - Progress
 
     private func saveProgressDebounced() {
-        // 簡單的節流：直接儲存（SwiftData 會批次處理）
         book.lastReadChapter = currentChapterIndex
-        book.lastReadOffset = visibleParagraphIndex
-        book.dateLastRead = Date()
-
-        // 計算整體進度
-        let totalChapters = book.sortedChapters.count
-        if totalChapters > 0 {
-            let chapterProgress = Double(currentChapterIndex) / Double(totalChapters)
-            let withinChapterProgress = currentParagraphs.isEmpty ? 0 :
-                Double(visibleParagraphIndex) / Double(currentParagraphs.count) / Double(totalChapters)
-            book.readingProgress = min(chapterProgress + withinChapterProgress, 1.0)
-        }
+        book.lastReadOffset  = visibleParagraphIndex
+        book.dateLastRead    = Date()
+        updateReadingProgress()
     }
 
     private func saveProgress() {
         book.lastReadChapter = currentChapterIndex
-        book.lastReadOffset = visibleParagraphIndex
-        book.dateLastRead = Date()
+        book.lastReadOffset  = visibleParagraphIndex
+        book.dateLastRead    = Date()
+        updateReadingProgress()
+    }
 
+    private func updateReadingProgress() {
         let totalChapters = book.sortedChapters.count
-        if totalChapters > 0 {
-            let chapterProgress = Double(currentChapterIndex) / Double(totalChapters)
-            let withinChapterProgress = currentParagraphs.isEmpty ? 0 :
-                Double(visibleParagraphIndex) / Double(currentParagraphs.count) / Double(totalChapters)
-            book.readingProgress = min(chapterProgress + withinChapterProgress, 1.0)
-        }
+        guard totalChapters > 0 else { return }
+        let chapterProgress = Double(currentChapterIndex) / Double(totalChapters)
+        let withinChapter   = currentParagraphs.isEmpty ? 0.0 :
+            Double(visibleParagraphIndex) / Double(currentParagraphs.count) / Double(totalChapters)
+        book.readingProgress = min(chapterProgress + withinChapter, 1.0)
     }
 }
