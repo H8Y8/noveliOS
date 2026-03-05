@@ -10,6 +10,8 @@ class TTSService: NSObject {
     var currentParagraphIndex: Int = 0
     /// 目前載入的書籍 ID，供 LibraryView 顯示播放中指示
     var currentBookId: UUID?
+    /// 睡眠計時器到期時間（nil = 關閉）
+    var sleepTimerEndDate: Date?
 
     // MARK: - 回調
     var onChapterFinished: (() -> Void)?
@@ -19,6 +21,17 @@ class TTSService: NSObject {
     private var paragraphs: [String] = []
     private var rate: Float = 0.5
     private var voiceIdentifier: String?
+
+    // MARK: - 衍生狀態
+
+    /// 當前朗讀段落文字，供 NarratorPlayerView 預覽
+    var currentParagraphText: String {
+        guard currentParagraphIndex < paragraphs.count else { return "" }
+        return paragraphs[currentParagraphIndex]
+    }
+
+    /// 是否有已載入的段落（用於判斷是否顯示迷你播放條）
+    var hasContent: Bool { !paragraphs.isEmpty }
 
     override init() {
         super.init()
@@ -101,6 +114,15 @@ class TTSService: NSObject {
         voiceIdentifier = identifier
     }
 
+    /// 設定睡眠計時器（minutes = nil 代表關閉）
+    func setSleepTimer(minutes: Int?) {
+        if let minutes {
+            sleepTimerEndDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        } else {
+            sleepTimerEndDate = nil
+        }
+    }
+
     /// 跳轉到指定段落
     func seekTo(paragraphIndex: Int) {
         guard paragraphIndex >= 0, paragraphIndex < paragraphs.count else { return }
@@ -146,6 +168,14 @@ class TTSService: NSObject {
     }
 
     fileprivate func handleUtteranceFinished() {
+        // 檢查睡眠計時器：到期則自動暫停
+        if let endDate = sleepTimerEndDate, Date() >= endDate {
+            sleepTimerEndDate = nil
+            isPlaying = false
+            isPaused = false
+            return
+        }
+
         guard isPlaying || (!isPaused && currentParagraphIndex < paragraphs.count - 1) else { return }
 
         if currentParagraphIndex < paragraphs.count - 1 {

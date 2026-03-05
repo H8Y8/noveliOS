@@ -13,6 +13,7 @@ struct ReaderView: View {
     @State private var showToolbars = true
     @State private var showSettings = false
     @State private var showChapterList = false
+    @State private var showNarratorPlayer = false
     @State private var currentChapterIndex: Int = 0
     @State private var visibleParagraphIndex: Int = 0
     @State private var nowPlayingService = NowPlayingService()
@@ -105,6 +106,12 @@ struct ReaderView: View {
         .sheet(isPresented: $showSettings) {
             SettingsSheet()
         }
+        .sheet(isPresented: $showNarratorPlayer) {
+            NarratorPlayerView(
+                book: book,
+                chapterTitle: currentChapter?.title ?? ""
+            )
+        }
         .sheet(isPresented: $showChapterList) {
             ChapterListSheet(
                 chapters: book.sortedChapters,
@@ -186,12 +193,19 @@ struct ReaderView: View {
                     chapterSlider
                 }
 
+                // 迷你播放條（TTS 有內容時才顯示）
+                if ttsService.hasContent {
+                    miniPlayerStrip
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
                 // TTS 控制列
                 ttsControlRow
             }
             .padding(.top, NNSpacing.xs)
             .padding(.bottom, NNSpacing.sm)
             .background(theme.toolbarStyle)
+            .animation(NNAnimation.toolbarToggle, value: ttsService.hasContent)
         }
     }
 
@@ -228,6 +242,39 @@ struct ReaderView: View {
             }
             .padding(.horizontal, NNSpacing.md)
         }
+    }
+
+    // 迷你播放條：當前段落文字預覽 + 點擊展開完整說書人面板
+    private var miniPlayerStrip: some View {
+        Button {
+            showNarratorPlayer = true
+        } label: {
+            HStack(spacing: NNSpacing.sm) {
+                Image(systemName: ttsService.isPlaying ? "waveform" : "pause.fill")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(ttsService.isPlaying ? NNColor.accent : theme.secondaryTextColor)
+                    .frame(width: 16)
+                    .symbolEffect(.variableColor.iterative,
+                                  options: ttsService.isPlaying ? .repeating : .nonRepeating)
+
+                Text(ttsService.currentParagraphText.isEmpty
+                     ? "點擊展開說書人"
+                     : ttsService.currentParagraphText)
+                    .font(NNFont.uiCaption)
+                    .foregroundStyle(theme.secondaryTextColor)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(theme.secondaryTextColor)
+            }
+            .padding(.horizontal, NNSpacing.lg)
+            .frame(height: 34)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("展開說書人控制面板")
+        .overlay(Rectangle().fill(theme.separatorColor).frame(height: 0.5), alignment: .top)
     }
 
     // TTS 控制列：⏮  ▶/❚❚  ⏭ ··········· ⚙
