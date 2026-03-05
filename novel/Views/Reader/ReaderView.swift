@@ -77,6 +77,7 @@ struct ReaderView: View {
         .onAppear {
             currentChapterIndex = book.lastReadChapter
             visibleParagraphIndex = book.lastReadOffset
+            ttsService.currentBookId = book.id
 
             // 確保有 UserSettings
             if allSettings.isEmpty {
@@ -89,6 +90,7 @@ struct ReaderView: View {
         .onDisappear {
             saveProgress()
             ttsService.stop()
+            ttsService.currentBookId = nil
             nowPlayingService.clearNowPlaying()
         }
         .onChange(of: visibleParagraphIndex) { _, _ in

@@ -2,34 +2,47 @@ import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
 
-/// 書庫主頁：顯示所有已匯入書籍，支援匯入、刪除、重新命名
+/// 書庫主頁：2 欄卡片格局，深色底，支援匯入 / 刪除 / 重新命名
 struct LibraryView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(TTSService.self) private var ttsService
     @Query(sort: \Book.dateLastRead, order: .reverse) private var books: [Book]
 
     @State private var showFileImporter = false
-    @State private var showImportError = false
+    @State private var showImportError  = false
     @State private var importErrorMessage = ""
     @State private var bookToRename: Book?
-    @State private var renameText = ""
-    @State private var showRenameAlert = false
+    @State private var renameText       = ""
+    @State private var showRenameAlert  = false
+
+    private let columns = [
+        GridItem(.flexible(), spacing: NNSpacing.cardSpacing),
+        GridItem(.flexible(), spacing: NNSpacing.cardSpacing)
+    ]
 
     var body: some View {
         NavigationStack {
-            Group {
+            ZStack {
+                NNColor.appBackground.ignoresSafeArea()
+
                 if books.isEmpty {
                     emptyStateView
                 } else {
-                    bookListView
+                    bookGridView
                 }
             }
-            .navigationTitle("小說說書器")
+            .navigationTitle("書庫")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(NNColor.appBackground, for: .navigationBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         showFileImporter = true
                     } label: {
-                        Image(systemName: "plus")
+                        Image(systemName: NNSymbol.importFile)
+                            .foregroundStyle(NNColor.accent)
+                            .imageScale(.medium)
                     }
                     .accessibilityLabel("匯入小說")
                 }
@@ -63,52 +76,89 @@ struct LibraryView: View {
         }
     }
 
-    // MARK: - 空狀態
+    // MARK: - Book Grid
+
+    private var bookGridView: some View {
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: NNSpacing.cardSpacing) {
+                ForEach(Array(books.enumerated()), id: \.element.id) { index, book in
+                    NavigationLink(value: book) {
+                        BookCardView(
+                            book: book,
+                            isPlaying: ttsService.currentBookId == book.id && ttsService.isPlaying,
+                            appearIndex: index
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        Button {
+                            bookToRename = book
+                            renameText   = book.title
+                            showRenameAlert = true
+                        } label: {
+                            Label("重新命名", systemImage: NNSymbol.renameBook)
+                        }
+
+                        Divider()
+
+                        Button(role: .destructive) {
+                            deleteBook(book)
+                        } label: {
+                            Label("刪除", systemImage: NNSymbol.deleteBook)
+                        }
+                    }
+                }
+            }
+            .padding(NNSpacing.md)
+        }
+    }
+
+    // MARK: - Empty State
+
     private var emptyStateView: some View {
-        ContentUnavailableView {
-            Label("尚無書籍", systemImage: "book.closed")
-        } description: {
-            Text("點擊右上角 + 匯入 .txt 小說檔案")
-        } actions: {
-            Button("匯入小說") {
+        VStack(spacing: NNSpacing.lg) {
+            Spacer()
+
+            Image(systemName: "books.vertical")
+                .font(.system(size: 60, weight: .thin))
+                .foregroundStyle(NNColor.textTertiary)
+
+            VStack(spacing: NNSpacing.sm) {
+                Text("書架是空的")
+                    .font(NNFont.uiTitle)
+                    .foregroundStyle(NNColor.textPrimary)
+
+                Text("匯入 .txt 格式的小說\n開始你的閱讀之旅")
+                    .font(NNFont.uiBody)
+                    .foregroundStyle(NNColor.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Button {
                 showFileImporter = true
+            } label: {
+                HStack(spacing: NNSpacing.sm) {
+                    Image(systemName: NNSymbol.importFile)
+                    Text("匯入小說")
+                        .fontWeight(.medium)
+                }
+                .font(NNFont.uiBody)
+                .foregroundStyle(.white)
+                .padding(.horizontal, NNSpacing.xl)
+                .padding(.vertical, 14)
+                .background(NNColor.accent)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            .buttonStyle(.borderedProminent)
+            .accessibilityLabel("匯入小說")
+
+            Spacer()
+            Spacer()
         }
+        .padding(NNSpacing.xl)
     }
 
-    // MARK: - 書籍列表
-    private var bookListView: some View {
-        List {
-            ForEach(books) { book in
-                NavigationLink(value: book) {
-                    BookCardView(book: book)
-                }
-                .contextMenu {
-                    Button {
-                        bookToRename = book
-                        renameText = book.title
-                        showRenameAlert = true
-                    } label: {
-                        Label("重新命名", systemImage: "pencil")
-                    }
+    // MARK: - File Import
 
-                    Button(role: .destructive) {
-                        deleteBook(book)
-                    } label: {
-                        Label("刪除", systemImage: "trash")
-                    }
-                }
-            }
-            .onDelete { indexSet in
-                for index in indexSet {
-                    deleteBook(books[index])
-                }
-            }
-        }
-    }
-
-    // MARK: - 匯入處理
     private func handleFileImport(result: Result<[URL], Error>) {
         switch result {
         case .success(let urls):
@@ -134,17 +184,11 @@ struct LibraryView: View {
                     return
                 }
 
-                // 從檔名取得書名（去除副檔名）
-                let title = url.deletingPathExtension().lastPathComponent
-
-                let book = Book(title: title, fileName: url.lastPathComponent, content: content)
-
-                // 解析章節
+                let title   = url.deletingPathExtension().lastPathComponent
+                let book    = Book(title: title, fileName: url.lastPathComponent, content: content)
                 let chapters = ChapterParser.parseChapters(from: content)
                 book.chapters = chapters
-                for chapter in chapters {
-                    chapter.book = book
-                }
+                for chapter in chapters { chapter.book = book }
 
                 modelContext.insert(book)
                 try modelContext.save()
@@ -160,7 +204,8 @@ struct LibraryView: View {
         }
     }
 
-    // MARK: - 刪除書籍
+    // MARK: - Delete
+
     private func deleteBook(_ book: Book) {
         modelContext.delete(book)
     }

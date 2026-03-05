@@ -8,6 +8,8 @@ class TTSService: NSObject {
     var isPlaying: Bool = false
     var isPaused: Bool = false
     var currentParagraphIndex: Int = 0
+    /// 目前載入的書籍 ID，供 LibraryView 顯示播放中指示
+    var currentBookId: UUID?
 
     // MARK: - 回調
     var onChapterFinished: (() -> Void)?
