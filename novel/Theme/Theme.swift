@@ -179,8 +179,8 @@ enum NNAnimation {
     /// 工具列顯示/隱藏：fade + slide，0.25s
     static let toolbarToggle  = Animation.easeInOut(duration: 0.25)
 
-    /// TTS 段落高亮切換：柔和漸變，0.3s
-    static let ttsHighlight   = Animation.easeInOut(duration: 0.3)
+    /// TTS 段落高亮切換：easeOut（進入型動畫，0.25s）
+    static let ttsHighlight   = Animation.easeOut(duration: 0.25)
 
     /// Sheet 展開/收合（TTS 播放器、設定）：spring
     static let sheetSpring    = Animation.spring(response: 0.4, dampingFraction: 0.78)

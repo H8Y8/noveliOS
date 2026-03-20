@@ -1,56 +1,169 @@
 import Foundation
 import AVFoundation
 
-/// TTS 說書服務：封裝 AVSpeechSynthesizer，提供段落朗讀控制
+/// TTS 說書服務：多引擎架構的編排器
+/// 公開 API 保持不變，內部委派給 TTSProvider 實作
 @Observable
-class TTSService: NSObject {
+class TTSService {
     // MARK: - 公開狀態
     var isPlaying: Bool = false
     var isPaused: Bool = false
     var currentParagraphIndex: Int = 0
-    /// 目前載入的書籍 ID，供 LibraryView 顯示播放中指示
+
+    /// 當前書籍 ID（用於追蹤哪本書正在播放）
     var currentBookId: UUID?
-    /// 睡眠計時器到期時間（nil = 關閉）
+
+    /// 是否已載入段落內容
+    var hasContent: Bool {
+        !paragraphs.isEmpty
+    }
+
+    /// 當前正在朗讀的段落文字（用於迷你播放條預覽）
+    var currentParagraphText: String {
+        guard currentParagraphIndex >= 0, currentParagraphIndex < paragraphs.count else { return "" }
+        return paragraphs[currentParagraphIndex]
+    }
+
+    /// 睡眠定時器結束時間
     var sleepTimerEndDate: Date?
+    private var sleepTimerTask: Task<Void, Never>?
 
     // MARK: - 回調
     var onChapterFinished: (() -> Void)?
 
-    // MARK: - 私有屬性
-    private let synthesizer = AVSpeechSynthesizer()
+    // MARK: - 引擎管理
+    private(set) var activeProviderType: TTSProviderType = .system
+
+    /// 具體 Provider 實例
+    let edgeProvider = EdgeTTSProvider()
+    let systemProvider = SystemTTSProvider()
+    let azureProvider = AzureTTSProvider()
+
+    /// MP3 音訊播放器（用於 Edge TTS / Azure 等回傳 Data 的引擎）
+    private let audioPlayer = AudioPlayerService()
+
+    // MARK: - 私有狀態
     private var paragraphs: [String] = []
     private var rate: Float = 0.5
-    private var voiceIdentifier: String?
+    private var currentVoice: TTSVoice?
+    private var currentSynthesisTask: Task<Void, Never>?
+    private var consecutiveFailures: Int = 0
 
-    // MARK: - 衍生狀態
+    /// 預取快取：段落索引 → 已合成的音訊資料（記憶體層）
+    private var prefetchCache: [Int: Data] = [:]
+    /// 背景預取任務
+    private var prefetchTask: Task<Void, Never>?
+    /// 磁碟層快取（跨 session 持久化）
+    private let ttsCache = TTSCacheService()
 
-    /// 當前朗讀段落文字，供 NarratorPlayerView 預覽
-    var currentParagraphText: String {
-        guard currentParagraphIndex < paragraphs.count else { return "" }
-        return paragraphs[currentParagraphIndex]
+    init() {
+        // 系統語音：段落開始時更新高亮索引
+        systemProvider.onParagraphStarted = { [weak self] index in
+            self?.currentParagraphIndex = index
+        }
+        // 系統語音：所有段落播完 → 章節結束
+        systemProvider.onAllFinished = { [weak self] in
+            guard let self, self.isPlaying else { return }
+            self.isPlaying = false
+            self.isPaused = false
+            self.onChapterFinished?()
+        }
+        // Edge / Azure 音訊播完 → 前進到下一段
+        audioPlayer.onPlaybackFinished = { [weak self] in
+            self?.handleUtteranceFinished()
+        }
+
+        // 音訊中斷處理（來電、鬧鐘等）
+        NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] notification in
+            guard let self,
+                  let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+            Task { @MainActor in
+                switch type {
+                case .began:
+                    self.pause()
+                case .ended:
+                    let optionsValue = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+                    let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+                    if options.contains(.shouldResume) {
+                        self.play()
+                    }
+                @unknown default:
+                    break
+                }
+            }
+        }
     }
 
-    /// 是否有已載入的段落（用於判斷是否顯示迷你播放條）
-    var hasContent: Bool { !paragraphs.isEmpty }
+    // MARK: - 睡眠定時器
 
-    override init() {
-        super.init()
-        synthesizer.delegate = self
+    /// 設定睡眠定時器（分鐘數），nil 表示取消
+    func setSleepTimer(minutes: Int?) {
+        sleepTimerTask?.cancel()
+        sleepTimerTask = nil
+
+        guard let minutes else {
+            sleepTimerEndDate = nil
+            return
+        }
+
+        let endDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
+        sleepTimerEndDate = endDate
+
+        sleepTimerTask = Task {
+            try? await Task.sleep(for: .seconds(minutes * 60))
+            guard !Task.isCancelled else { return }
+            stop()
+            sleepTimerEndDate = nil
+        }
     }
 
-    // MARK: - 公開 API
+    // MARK: - 引擎設定
+
+    /// 切換 TTS 引擎
+    func setProviderType(_ type: TTSProviderType) {
+        let wasPlaying = isPlaying
+        stop()
+        activeProviderType = type
+        consecutiveFailures = 0
+        if wasPlaying {
+            play()
+        }
+    }
+
+    /// 設定 Edge TTS 伺服器 URL
+    func setEdgeServerURL(_ urlString: String?) {
+        if let urlString, !urlString.isEmpty, let url = URL(string: urlString) {
+            edgeProvider.serverURL = url
+        } else {
+            edgeProvider.serverURL = nil
+        }
+    }
+
+    /// 設定 Azure TTS 憑證
+    func setAzureCredentials(key: String?, region: String) {
+        azureProvider.subscriptionKey = key
+        azureProvider.region = region
+    }
+
+    // MARK: - 公開 API（簽章不變）
 
     /// 載入章節的段落內容
     func loadChapter(paragraphs: [String], startAt: Int = 0) {
         stop()
         self.paragraphs = paragraphs
         self.currentParagraphIndex = startAt
+        clearPrefetchCache()
     }
 
     /// 開始或恢復朗讀
     func play() {
         if isPaused {
-            synthesizer.continueSpeaking()
+            resumePlayback()
             isPaused = false
             isPlaying = true
             return
@@ -64,16 +177,19 @@ class TTSService: NSObject {
 
     /// 暫停朗讀
     func pause() {
-        synthesizer.pauseSpeaking(at: .immediate)
+        pausePlayback()
         isPaused = true
         isPlaying = false
     }
 
     /// 停止朗讀
     func stop() {
-        synthesizer.stopSpeaking(at: .immediate)
+        currentSynthesisTask?.cancel()
+        currentSynthesisTask = nil
+        stopPlayback()
         isPlaying = false
         isPaused = false
+        clearPrefetchCache()
     }
 
     /// 朗讀下一段
@@ -83,7 +199,8 @@ class TTSService: NSObject {
             onChapterFinished?()
             return
         }
-        synthesizer.stopSpeaking(at: .immediate)
+        stopPlayback()
+        currentSynthesisTask?.cancel()
         currentParagraphIndex += 1
         isPaused = false
         isPlaying = true
@@ -93,33 +210,37 @@ class TTSService: NSObject {
     /// 朗讀上一段
     func previousParagraph() {
         guard currentParagraphIndex > 0 else { return }
-        synthesizer.stopSpeaking(at: .immediate)
+        stopPlayback()
+        currentSynthesisTask?.cancel()
         currentParagraphIndex -= 1
         isPaused = false
         isPlaying = true
         speakCurrentParagraph()
     }
 
-    /// 設定語速（暫停後以新速率重新開始當前段落）
+    /// 設定語速
     func setRate(_ newRate: Float) {
         rate = newRate
         if isPlaying {
-            synthesizer.stopSpeaking(at: .immediate)
+            stopPlayback()
+            currentSynthesisTask?.cancel()
+            clearPrefetchCache()
             speakCurrentParagraph()
         }
     }
 
-    /// 設定語音
-    func setVoice(identifier: String?) {
-        voiceIdentifier = identifier
+    /// 設定語音（TTSVoice）
+    func setVoice(_ voice: TTSVoice?) {
+        currentVoice = voice
+        clearPrefetchCache()
     }
 
-    /// 設定睡眠計時器（minutes = nil 代表關閉）
-    func setSleepTimer(minutes: Int?) {
-        if let minutes {
-            sleepTimerEndDate = Date().addingTimeInterval(TimeInterval(minutes * 60))
+    /// 設定語音（向下相容：以 AVSpeechSynthesisVoice identifier 設定）
+    func setVoice(identifier: String?) {
+        if let identifier, !identifier.isEmpty {
+            currentVoice = TTSVoice(id: identifier, name: "", language: "zh-TW", providerID: "system")
         } else {
-            sleepTimerEndDate = nil
+            currentVoice = nil
         }
     }
 
@@ -127,7 +248,8 @@ class TTSService: NSObject {
     func seekTo(paragraphIndex: Int) {
         guard paragraphIndex >= 0, paragraphIndex < paragraphs.count else { return }
         let wasPlaying = isPlaying
-        synthesizer.stopSpeaking(at: .immediate)
+        stopPlayback()
+        currentSynthesisTask?.cancel()
         currentParagraphIndex = paragraphIndex
         if wasPlaying {
             isPaused = false
@@ -136,7 +258,7 @@ class TTSService: NSObject {
         }
     }
 
-    // MARK: - 私有方法
+    // MARK: - 私有：播放編排
 
     private func speakCurrentParagraph() {
         guard currentParagraphIndex < paragraphs.count else {
@@ -146,36 +268,148 @@ class TTSService: NSObject {
             return
         }
 
-        let text = paragraphs[currentParagraphIndex]
-        guard !text.isEmpty else {
-            // 跳過空段落
-            handleUtteranceFinished()
-            return
-        }
+        let voice = currentVoice ?? defaultVoiceForProvider()
 
-        let utterance = AVSpeechUtterance(string: text)
-        if let voiceId = voiceIdentifier,
-           let voice = AVSpeechSynthesisVoice(identifier: voiceId) {
-            utterance.voice = voice
+        if activeProviderType == .system {
+            // 系統語音：批量排入所有剩餘段落，讓 AVSpeechSynthesizer 無縫銜接
+            systemProvider.loadParagraphs(paragraphs, startAt: currentParagraphIndex, voice: voice, rate: rate)
         } else {
-            utterance.voice = AVSpeechSynthesisVoice(language: "zh-TW")
+            // Edge TTS / Azure：優先使用預取快取，快取命中時可立即播放
+            let index = currentParagraphIndex
+            let text = paragraphs[index]
+            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                handleUtteranceFinished()
+                return
+            }
+
+            let provider = activeProvider
+            currentSynthesisTask = Task {
+                do {
+                    let data: Data
+                    if let cached = prefetchCache[index] {
+                        // 層 1：記憶體預取快取（最快）
+                        data = cached
+                        prefetchCache.removeValue(forKey: index)
+                    } else if let bookId = currentBookId,
+                              let fileData = ttsCache.load(bookId: bookId, index: index) {
+                        // 層 2：磁碟檔案快取（跨 session，免網路）
+                        data = fileData
+                    } else {
+                        // 層 3：即時網路合成，成功後存入磁碟
+                        data = try await provider.synthesize(text: text, voice: voice, rate: rate)
+                        if let bookId = currentBookId {
+                            ttsCache.save(data: data, bookId: bookId, index: index)
+                        }
+                    }
+                    guard !Task.isCancelled else { return }
+                    try audioPlayer.play(data: data)
+                    consecutiveFailures = 0
+                    // 播放開始後立即預取接下來 2 段
+                    prefetchAhead(from: index, provider: provider, voice: voice)
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    consecutiveFailures += 1
+                    print("[\(activeProviderType.displayName)] 合成失敗（第 \(consecutiveFailures) 次）：\(error.localizedDescription)")
+
+                    if consecutiveFailures >= 3 {
+                        print("連續失敗 \(consecutiveFailures) 次，自動切換至系統語音")
+                        activeProviderType = .system
+                    }
+
+                    // 降級：用系統語音朗讀當前段落起的所有剩餘段落
+                    let fallbackVoice = TTSVoice(id: "", name: "預設", language: "zh-TW", providerID: "system")
+                    systemProvider.loadParagraphs(self.paragraphs, startAt: self.currentParagraphIndex,
+                                                  voice: fallbackVoice, rate: self.rate)
+                }
+            }
         }
-        utterance.rate = rate
-        utterance.pitchMultiplier = 1.0
-        utterance.preUtteranceDelay = 0.1
-        utterance.postUtteranceDelay = 0.2
-        synthesizer.speak(utterance)
     }
 
-    fileprivate func handleUtteranceFinished() {
-        // 檢查睡眠計時器：到期則自動暫停
-        if let endDate = sleepTimerEndDate, Date() >= endDate {
-            sleepTimerEndDate = nil
-            isPlaying = false
-            isPaused = false
-            return
-        }
+    /// 預取 from 之後的 lookaheadCount 段
+    /// 優先從磁碟快取載入（免網路），否則合成並同步存入磁碟
+    private func prefetchAhead(from index: Int, provider: any TTSProvider, voice: TTSVoice, lookaheadCount: Int = 2) {
+        prefetchTask?.cancel()
+        prefetchTask = Task {
+            for offset in 1...lookaheadCount {
+                let nextIndex = index + offset
+                guard nextIndex < paragraphs.count else { break }
+                guard prefetchCache[nextIndex] == nil else { continue }
+                let text = paragraphs[nextIndex]
+                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
+                guard !Task.isCancelled else { return }
 
+                // 磁碟有快取：直接讀入記憶體，跳過網路
+                if let bookId = currentBookId,
+                   let fileData = ttsCache.load(bookId: bookId, index: nextIndex) {
+                    prefetchCache[nextIndex] = fileData
+                    continue
+                }
+
+                // 磁碟無快取：合成並同時存入磁碟（供下次 session 使用）
+                if let data = try? await provider.synthesize(text: text, voice: voice, rate: rate) {
+                    guard !Task.isCancelled else { return }
+                    if let bookId = currentBookId {
+                        ttsCache.save(data: data, bookId: bookId, index: nextIndex)
+                    }
+                    prefetchCache[nextIndex] = data
+                }
+            }
+        }
+    }
+
+    private func clearPrefetchCache() {
+        prefetchTask?.cancel()
+        prefetchTask = nil
+        prefetchCache.removeAll()
+    }
+
+    /// 取得當前引擎實例
+    private var activeProvider: any TTSProvider {
+        switch activeProviderType {
+        case .edge: edgeProvider
+        case .system: systemProvider
+        case .azure: azureProvider
+        }
+    }
+
+    /// 取得引擎的預設語音
+    private func defaultVoiceForProvider() -> TTSVoice {
+        switch activeProviderType {
+        case .edge:
+            TTSVoice(id: "zh-TW-HsiaoChenNeural", name: "曉辰", language: "zh-TW", providerID: "edge")
+        case .system:
+            TTSVoice(id: "", name: "預設", language: "zh-TW", providerID: "system")
+        case .azure:
+            TTSVoice(id: "zh-TW-HsiaoChenNeural", name: "曉辰", language: "zh-TW", providerID: "azure")
+        }
+    }
+
+    // MARK: - 私有：播放控制
+
+    private func pausePlayback() {
+        if activeProviderType == .system {
+            systemProvider.pauseSpeaking()
+        } else {
+            audioPlayer.pause()
+        }
+    }
+
+    private func resumePlayback() {
+        if activeProviderType == .system {
+            systemProvider.continueSpeaking()
+        } else {
+            audioPlayer.resume()
+        }
+    }
+
+    private func stopPlayback() {
+        systemProvider.stopSpeaking()
+        audioPlayer.stop()
+    }
+
+    // MARK: - 私有：段落完成處理
+
+    private func handleUtteranceFinished() {
         guard isPlaying || (!isPaused && currentParagraphIndex < paragraphs.count - 1) else { return }
 
         if currentParagraphIndex < paragraphs.count - 1 {
@@ -187,18 +421,5 @@ class TTSService: NSObject {
             isPaused = false
             onChapterFinished?()
         }
-    }
-}
-
-// MARK: - AVSpeechSynthesizerDelegate
-extension TTSService: AVSpeechSynthesizerDelegate {
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in
-            self.handleUtteranceFinished()
-        }
-    }
-
-    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        // 取消時不做額外處理，由控制方法管理狀態
     }
 }

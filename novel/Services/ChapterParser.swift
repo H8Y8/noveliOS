@@ -1,60 +1,85 @@
 import Foundation
 
 struct ChapterParser {
-    /// 章節匹配的正則模式
-    private static let patterns: [String] = [
-        #"^第[零一二三四五六七八九十百千萬\d]+[章回節卷集篇]"#,
-        #"^Chapter\s+\d+"#,
-        #"^卷[零一二三四五六七八九十百千萬\d]+"#
+    /// 按優先順序排列的章節 pattern。
+    /// parseChapters 會依序嘗試每個 pattern，使用第一個能找到足夠章節的 pattern，避免混用造成重複。
+    private static let orderedPatterns: [(pattern: String, hasNumberPrefix: Bool)] = [
+        // 帶數字前綴：「1. 第一章 ...」（最可靠，優先使用）
+        (#"^\d+\.\s+第[零一二三四五六七八九十百千萬\d]+[章回節卷集篇]"#, true),
+        // 純章節標題：「第一章 ...」、「第146章 ...」
+        (#"^第[零一二三四五六七八九十百千萬\d]+[章回節卷集篇]"#, false),
+        // 英文章節：「Chapter 1」
+        (#"^Chapter\s+\d+"#, false),
+        // 卷：「卷一」
+        (#"^卷[零一二三四五六七八九十百千萬\d]+"#, false),
     ]
+
+    private static let minimumChapterCount = 2
 
     /// 從完整文字內容中解析章節
     static func parseChapters(from content: String) -> [Chapter] {
         let lines = content.components(separatedBy: .newlines)
-        var chapterMarkers: [(title: String, utf16Offset: Int)] = []
-        var currentUTF16Offset = 0
 
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if !trimmed.isEmpty && isChapterTitle(trimmed) {
-                chapterMarkers.append((title: trimmed, utf16Offset: currentUTF16Offset))
+        // 依序嘗試每個 pattern，第一個找到足夠章節數的就採用
+        for (pattern, hasNumberPrefix) in orderedPatterns {
+            guard let regex = try? Regex(pattern) else { continue }
+            let markers = extractMarkers(from: lines, regex: regex, hasNumberPrefix: hasNumberPrefix)
+            if markers.count >= minimumChapterCount {
+                return buildChapters(from: markers, totalUTF16Length: content.utf16.count)
             }
-            // 每行的 UTF-16 長度 + 換行符
-            currentUTF16Offset += line.utf16.count + 1 // +1 for newline
-        }
-
-        let totalUTF16Length = content.utf16.count
-
-        // 若找到章節標記，建立章節
-        if !chapterMarkers.isEmpty {
-            var chapters: [Chapter] = []
-            for i in 0..<chapterMarkers.count {
-                let start = chapterMarkers[i].utf16Offset
-                let end = (i + 1 < chapterMarkers.count) ? chapterMarkers[i + 1].utf16Offset : totalUTF16Length
-                let chapter = Chapter(
-                    index: i,
-                    title: chapterMarkers[i].title,
-                    startOffset: start,
-                    endOffset: end
-                )
-                chapters.append(chapter)
-            }
-            return chapters
         }
 
         // Fallback：依固定字元數分頁（每 3000 字）
         return chunkChapters(content: content, chunkSize: 3000)
     }
 
-    /// 判斷一行文字是否為章節標題
-    private static func isChapterTitle(_ line: String) -> Bool {
-        for pattern in patterns {
-            if let regex = try? Regex(pattern),
-               line.firstMatch(of: regex) != nil {
-                return true
+    // MARK: - Private Helpers
+
+    /// 用指定的 regex 掃描所有行，回傳 (title, utf16Offset) 的列表
+    private static func extractMarkers(
+        from lines: [String],
+        regex: Regex<AnyRegexOutput>,
+        hasNumberPrefix: Bool
+    ) -> [(title: String, utf16Offset: Int)] {
+        var markers: [(title: String, utf16Offset: Int)] = []
+        var currentUTF16Offset = 0
+
+        for line in lines {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty, trimmed.firstMatch(of: regex) != nil {
+                let title: String
+                if hasNumberPrefix, let 第Idx = trimmed.range(of: "第") {
+                    // 去掉「1. 」前綴，只保留「第一章 ...」
+                    title = String(trimmed[第Idx.lowerBound...])
+                } else {
+                    title = trimmed
+                }
+                markers.append((title: title, utf16Offset: currentUTF16Offset))
             }
+            currentUTF16Offset += line.utf16.count + 1 // +1 for \n
         }
-        return false
+
+        return markers
+    }
+
+    /// 將 markers 轉換為 Chapter 物件列表
+    private static func buildChapters(
+        from markers: [(title: String, utf16Offset: Int)],
+        totalUTF16Length: Int
+    ) -> [Chapter] {
+        var chapters: [Chapter] = []
+        for i in 0..<markers.count {
+            let start = markers[i].utf16Offset
+            let end = (i + 1 < markers.count) ? markers[i + 1].utf16Offset : totalUTF16Length
+            let chapter = Chapter(
+                index: i,
+                title: markers[i].title,
+                startOffset: start,
+                endOffset: end
+            )
+            chapters.append(chapter)
+        }
+        return chapters
     }
 
     /// Fallback：將內容依固定字元數分割為章節
@@ -69,7 +94,6 @@ struct ChapterParser {
         while offset < totalLength {
             var end = min(offset + chunkSize, totalLength)
 
-            // 嘗試在段落邊界斷開
             if end < totalLength {
                 let searchStart = max(offset + chunkSize - 200, offset)
                 let utf16 = content.utf16

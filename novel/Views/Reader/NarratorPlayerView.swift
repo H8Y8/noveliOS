@@ -41,6 +41,8 @@ enum SleepTimerOption: String, CaseIterable, Identifiable {
 struct NarratorPlayerView: View {
     let book: Book
     let chapterTitle: String
+    let allParagraphs: [String]
+    let synthesisService: BookSynthesisService
 
     @Environment(TTSService.self) private var ttsService
     @Environment(\.dismiss) private var dismiss
@@ -51,7 +53,11 @@ struct NarratorPlayerView: View {
     @State private var timerDisplayTask: Task<Void, Never>?
     @State private var remainingSeconds: Int = 0
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var settings: UserSettings { allSettings.first ?? UserSettings() }
+
+    private var microAnimation: Animation? { reduceMotion ? nil : NNAnimation.micro }
 
     // 書庫封面同色系（hash 對應，與 BookCardView 呼應）
     private var coverPalette: (Color, Color) {
@@ -76,6 +82,7 @@ struct NarratorPlayerView: View {
                         Divider().background(.white.opacity(0.12))
                         speedControl
                         voiceControl
+                        synthesisSection
                         sleepTimerControl
                     }
                     .padding(.horizontal, NNSpacing.lg)
@@ -85,7 +92,10 @@ struct NarratorPlayerView: View {
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.hidden)
-        .onAppear { syncSleepTimerState() }
+        .onAppear {
+            syncSleepTimerState()
+            synthesisService.loadStatus(bookId: book.id, paragraphs: allParagraphs)
+        }
         .onDisappear { timerDisplayTask?.cancel() }
         .onChange(of: ttsService.sleepTimerEndDate) { _, _ in startTimerCountdown() }
     }
@@ -182,6 +192,7 @@ struct NarratorPlayerView: View {
                             .foregroundStyle(.white.opacity(0.35))
                     }
                 }
+                .animation(microAnimation, value: ttsService.isPlaying)
 
                 // 段落文字預覽
                 Text(
@@ -234,6 +245,8 @@ struct NarratorPlayerView: View {
                         .font(.system(size: 36, weight: .medium))
                         .foregroundStyle(.white)
                         .offset(x: ttsService.isPlaying ? 0 : 2)
+                        .contentTransition(.symbolEffect(.replace))
+                        .animation(microAnimation, value: ttsService.isPlaying)
                 }
             }
             .accessibilityLabel(ttsService.isPlaying ? "暫停" : "播放")
@@ -360,6 +373,111 @@ struct NarratorPlayerView: View {
             .sorted { $0.name < $1.name }
     }
 
+    // MARK: - Synthesis Section
+
+    @ViewBuilder
+    private var synthesisSection: some View {
+        if settings.ttsProviderType == .edge || settings.ttsProviderType == .azure {
+            sectionCard {
+                // Header
+                HStack {
+                    Image(systemName: "arrow.down.circle")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.55))
+                    Text("離線語音快取")
+                        .font(NNFont.uiBody)
+                        .foregroundStyle(.white)
+                    Spacer()
+                    Text(synthesisStatusLabel)
+                        .font(NNFont.uiCaption2)
+                        .foregroundStyle(synthesisStatusColor)
+                        .animation(NNAnimation.micro, value: synthesisService.isComplete)
+                }
+
+                // Progress bar（合成中才顯示）
+                if synthesisService.isSynthesizing {
+                    VStack(alignment: .leading, spacing: NNSpacing.xs) {
+                        ProgressView(value: synthesisService.progress)
+                            .tint(NNColor.accentLight)
+                            .animation(NNAnimation.micro, value: synthesisService.progress)
+                        Text("\(synthesisService.synthesizedCount) / \(synthesisService.totalCount) 段")
+                            .font(NNFont.uiCaption2)
+                            .foregroundStyle(.white.opacity(0.45))
+                            .monospacedDigit()
+                    }
+                } else if synthesisService.isComplete {
+                    Text("全書已合成，播放時不需等待網路。")
+                        .font(NNFont.uiCaption)
+                        .foregroundStyle(.white.opacity(0.45))
+                } else if synthesisService.synthesizedCount > 0 {
+                    Text("已合成 \(synthesisService.synthesizedCount) / \(synthesisService.totalCount) 段，可繼續合成剩餘部分。")
+                        .font(NNFont.uiCaption)
+                        .foregroundStyle(.white.opacity(0.45))
+                }
+
+                // Action buttons
+                HStack(spacing: NNSpacing.sm) {
+                    if synthesisService.isSynthesizing {
+                        chipButton(label: "取消", isSelected: false) {
+                            synthesisService.cancel()
+                        }
+                    } else if synthesisService.isComplete {
+                        chipButton(label: "清除快取", isSelected: false) {
+                            synthesisService.clearCache(bookId: book.id)
+                        }
+                    } else {
+                        chipButton(
+                            label: synthesisService.synthesizedCount > 0 ? "繼續合成" : "開始合成全書",
+                            isSelected: true
+                        ) {
+                            startSynthesis()
+                        }
+                        if synthesisService.synthesizedCount > 0 {
+                            chipButton(label: "清除快取", isSelected: false) {
+                                synthesisService.clearCache(bookId: book.id)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var synthesisStatusLabel: String {
+        if synthesisService.isSynthesizing  { return "合成中…" }
+        if synthesisService.isComplete      { return "已完成" }
+        if synthesisService.synthesizedCount > 0 { return "部分完成" }
+        return "尚未開始"
+    }
+
+    private var synthesisStatusColor: Color {
+        if synthesisService.isComplete      { return NNColor.accentLight }
+        if synthesisService.isSynthesizing  { return .white.opacity(0.6) }
+        if synthesisService.synthesizedCount > 0 { return .orange.opacity(0.8) }
+        return .white.opacity(0.35)
+    }
+
+    private func startSynthesis() {
+        let s = settings
+        let voice = TTSVoice(
+            id: s.edgeTTSVoice,
+            name: "",
+            language: "zh-TW",
+            providerID: s.ttsProviderType == .azure ? "azure" : "edge"
+        )
+        let provider: any TTSProvider = s.ttsProviderType == .azure
+            ? ttsService.azureProvider
+            : ttsService.edgeProvider
+
+        synthesisService.startSynthesis(
+            bookId: book.id,
+            paragraphs: allParagraphs,
+            provider: provider,
+            voice: voice,
+            rate: s.ttsRate
+        )
+    }
+
     // MARK: - Sleep Timer Control
 
     private var sleepTimerControl: some View {
@@ -428,6 +546,7 @@ struct NarratorPlayerView: View {
                 .background(
                     Capsule()
                         .fill(isSelected ? NNColor.accentLight : Color.white.opacity(0.12))
+                        .animation(microAnimation, value: isSelected)
                 )
         }
         .buttonStyle(.plain)

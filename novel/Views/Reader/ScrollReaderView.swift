@@ -1,8 +1,18 @@
 import SwiftUI
 
-/// 捲動式閱讀內容視圖
-/// - 使用 NNFont/NNSpacing token 確保排版一致性
-/// - TTS 高亮透過柔和動畫切換，避免視覺跳動
+/// 程式化捲動指令，每次建立都有唯一 UUID 以確保相同 index 也能觸發
+struct ScrollCommand: Equatable {
+    let id: UUID
+    let index: Int
+    init(index: Int) {
+        self.id = UUID()
+        self.index = index
+    }
+}
+
+/// 捲動式閱讀內容視圖（全書連貫模式）
+/// - 顯示整本書所有段落，不分章節
+/// - TTS 高亮透過柔和動畫切換
 /// - 頂底預留工具列高度，確保首末段落不被遮擋
 struct ScrollReaderView: View {
     let paragraphs: [String]
@@ -12,6 +22,7 @@ struct ScrollReaderView: View {
     let fontFamily: String
     let highlightedParagraphIndex: Int?
     @Binding var visibleParagraphIndex: Int
+    @Binding var scrollCommand: ScrollCommand?
 
     // MARK: - Body
 
@@ -36,6 +47,12 @@ struct ScrollReaderView: View {
                     withAnimation(NNAnimation.ttsHighlight) {
                         proxy.scrollTo(newIndex, anchor: .center)
                     }
+                }
+            }
+            .onChange(of: scrollCommand) { _, cmd in
+                // 程式化跳轉（章節目錄選擇）
+                if let cmd {
+                    proxy.scrollTo(cmd.index, anchor: .top)
                 }
             }
             .onAppear {
