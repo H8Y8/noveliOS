@@ -6,6 +6,7 @@
 //
 
 import Testing
+import UIKit
 @testable import novel
 
 // MARK: - ChapterParser 測試
@@ -180,5 +181,171 @@ struct EncodingDetectorTests {
         let garbled = Data([0xFF, 0xFE, 0x00])
         let encoding = EncodingDetector.detectEncoding(data: garbled)
         #expect(encoding == .utf8)
+    }
+}
+
+// MARK: - PaginationEngine 測試
+
+struct PaginationEngineTests {
+
+    @Test func emptyParagraphsReturnsEmpty() {
+        let pages = PaginationEngine.paginate(
+            paragraphs: [],
+            fontSize: 18,
+            lineSpacing: 1.5,
+            fontFamily: "System",
+            availableSize: CGSize(width: 300, height: 600)
+        )
+        #expect(pages.isEmpty)
+    }
+
+    @Test func singleParagraphFitsOnOnePage() {
+        let pages = PaginationEngine.paginate(
+            paragraphs: ["短段落"],
+            fontSize: 18,
+            lineSpacing: 1.5,
+            fontFamily: "System",
+            availableSize: CGSize(width: 300, height: 600)
+        )
+        #expect(pages.count == 1)
+        #expect(pages[0] == [0])
+    }
+
+    @Test func multipleParagraphsSpanMultiplePages() {
+        // 用極小的可用高度強制分頁
+        let paragraphs = (0..<10).map { "這是第\($0)段，包含一些足夠長的文字來佔據一些空間。" }
+        let pages = PaginationEngine.paginate(
+            paragraphs: paragraphs,
+            fontSize: 18,
+            lineSpacing: 1.5,
+            fontFamily: "System",
+            availableSize: CGSize(width: 300, height: 50) // 極小高度
+        )
+        #expect(pages.count > 1)
+    }
+
+    @Test func allParagraphsAppearExactlyOnce() {
+        let paragraphs = (0..<20).map { "段落 \($0)：測試文字。" }
+        let pages = PaginationEngine.paginate(
+            paragraphs: paragraphs,
+            fontSize: 18,
+            lineSpacing: 1.5,
+            fontFamily: "System",
+            availableSize: CGSize(width: 300, height: 100)
+        )
+        let allIndices = pages.flatMap { $0 }.sorted()
+        #expect(allIndices == Array(0..<20))
+    }
+
+    @Test func pageIndexForParagraph() {
+        let pages = [[0, 1, 2], [3, 4], [5, 6, 7, 8]]
+        #expect(PaginationEngine.pageIndex(forParagraph: 0, in: pages) == 0)
+        #expect(PaginationEngine.pageIndex(forParagraph: 2, in: pages) == 0)
+        #expect(PaginationEngine.pageIndex(forParagraph: 3, in: pages) == 1)
+        #expect(PaginationEngine.pageIndex(forParagraph: 8, in: pages) == 2)
+    }
+
+    @Test func pageIndexOutOfRangeFallsBackToLastPage() {
+        let pages = [[0, 1], [2, 3]]
+        #expect(PaginationEngine.pageIndex(forParagraph: 99, in: pages) == 1)
+    }
+}
+
+// MARK: - ReadingMode 測試
+
+struct ReadingModeTests {
+
+    @Test func rawValueRoundTrip() {
+        #expect(ReadingMode(rawValue: "scroll") == .scroll)
+        #expect(ReadingMode(rawValue: "pageCurl") == .pageCurl)
+        #expect(ReadingMode.scroll.rawValue == "scroll")
+        #expect(ReadingMode.pageCurl.rawValue == "pageCurl")
+    }
+
+    @Test func allCasesHasTwoCases() {
+        #expect(ReadingMode.allCases.count == 2)
+    }
+
+    @Test func invalidRawValueReturnsNil() {
+        #expect(ReadingMode(rawValue: "unknown") == nil)
+    }
+}
+
+// MARK: - TTSCacheService 測試
+
+struct TTSCacheServiceTests {
+
+    private let cache = TTSCacheService()
+    private let testBookId = UUID()
+
+    @Test func saveAndLoadCycle() {
+        let data = Data("test audio content".utf8)
+        cache.save(data: data, bookId: testBookId, index: 0)
+        let loaded = cache.load(bookId: testBookId, index: 0)
+        #expect(loaded == data)
+        // 清理
+        cache.clearCache(for: testBookId)
+    }
+
+    @Test func loadNonExistentReturnsNil() {
+        let ghostId = UUID()
+        let loaded = cache.load(bookId: ghostId, index: 999)
+        #expect(loaded == nil)
+    }
+
+    @Test func isCachedReturnsTrueAfterSave() {
+        let data = Data("cached".utf8)
+        cache.save(data: data, bookId: testBookId, index: 42)
+        #expect(cache.isCached(bookId: testBookId, index: 42))
+        cache.clearCache(for: testBookId)
+    }
+
+    @Test func clearCacheRemovesData() {
+        let data = Data("to be deleted".utf8)
+        cache.save(data: data, bookId: testBookId, index: 0)
+        cache.save(data: data, bookId: testBookId, index: 1)
+        cache.clearCache(for: testBookId)
+        #expect(cache.load(bookId: testBookId, index: 0) == nil)
+        #expect(cache.load(bookId: testBookId, index: 1) == nil)
+        #expect(cache.synthesizedCount(for: testBookId) == 0)
+    }
+
+    @Test func synthesizedCountReflectsSavedFiles() {
+        let data = Data("mp3".utf8)
+        cache.save(data: data, bookId: testBookId, index: 0)
+        cache.save(data: data, bookId: testBookId, index: 1)
+        cache.save(data: data, bookId: testBookId, index: 2)
+        #expect(cache.synthesizedCount(for: testBookId) == 3)
+        cache.clearCache(for: testBookId)
+    }
+}
+
+// MARK: - UserSettings 測試
+
+struct UserSettingsTests {
+
+    @Test func defaultValues() {
+        let settings = UserSettings()
+        #expect(settings.fontSize == 18.0)
+        #expect(settings.lineSpacing == 1.5)
+        #expect(settings.theme == "light")
+        #expect(settings.fontFamily == "System")
+        #expect(settings.ttsRate == 0.5)
+        #expect(settings.pageMode == "scroll")
+    }
+
+    @Test func readingModeComputedProperty() {
+        let settings = UserSettings()
+        #expect(settings.readingMode == .scroll)
+        settings.readingMode = .pageCurl
+        #expect(settings.pageMode == "pageCurl")
+        #expect(settings.readingMode == .pageCurl)
+    }
+
+    @Test func readingThemeComputedProperty() {
+        let settings = UserSettings()
+        #expect(settings.readingTheme == .light)
+        settings.readingTheme = .dark
+        #expect(settings.theme == "dark")
     }
 }
