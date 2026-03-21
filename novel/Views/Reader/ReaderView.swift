@@ -30,6 +30,8 @@ struct ReaderView: View {
     // 翻頁模式分頁快取
     @State private var cachedPages: [[Int]] = []
     @State private var readerSize: CGSize = .zero
+    // saveProgress debounce
+    @State private var saveProgressTask: Task<Void, Never>?
 
     // MARK: - Derived
 
@@ -176,11 +178,12 @@ struct ReaderView: View {
             saveProgress()
             ttsService.stop()
             ttsService.currentBookId = nil
+            nowPlayingService.removeRemoteCommands()
             nowPlayingService.clearNowPlaying()
         }
         .onChange(of: visibleParagraphIndex) { _, _ in
             guard isReadyToSaveProgress else { return }
-            saveProgress()
+            saveProgressDebounced()
         }
         .onChange(of: settings.fontSize) { _, _ in recomputePages() }
         .onChange(of: settings.lineSpacing) { _, _ in recomputePages() }
@@ -636,7 +639,7 @@ struct ReaderView: View {
 
     // MARK: - Pagination (翻頁模式)
 
-    /// 根據目前設定與可用空間重新計算分頁
+    /// 根據目前設定與可用空間重新計算分頁（背景執行，避免阻塞主執行緒）
     private func recomputePages() {
         guard settings.readingMode == .pageCurl,
               !cachedAllParagraphs.isEmpty,
@@ -653,16 +656,36 @@ struct ReaderView: View {
 
         guard textHeight > 0 else { return }
 
-        cachedPages = PaginationEngine.paginate(
-            paragraphs: cachedAllParagraphs,
-            fontSize: settings.fontSize,
-            lineSpacing: settings.lineSpacing,
-            fontFamily: settings.fontFamily,
-            availableSize: CGSize(width: textWidth, height: textHeight)
-        )
+        // 捕獲值以在背景執行
+        let paragraphs = cachedAllParagraphs
+        let fontSize = settings.fontSize
+        let lineSpacing = settings.lineSpacing
+        let fontFamily = settings.fontFamily
+        let size = CGSize(width: textWidth, height: textHeight)
+
+        Task.detached(priority: .userInitiated) {
+            let pages = PaginationEngine.paginate(
+                paragraphs: paragraphs,
+                fontSize: fontSize,
+                lineSpacing: lineSpacing,
+                fontFamily: fontFamily,
+                availableSize: size
+            )
+            await MainActor.run { cachedPages = pages }
+        }
     }
 
     // MARK: - Progress
+
+    /// 去抖動儲存進度：500ms 內多次呼叫只執行最後一次
+    private func saveProgressDebounced() {
+        saveProgressTask?.cancel()
+        saveProgressTask = Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            saveProgress()
+        }
+    }
 
     private func saveProgress() {
         // lastReadOffset 現在儲存全書段落索引（非章節內索引）

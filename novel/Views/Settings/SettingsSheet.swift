@@ -15,6 +15,7 @@ struct SettingsSheet: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var serverStatus: ServerStatus = .unknown
+    @State private var cachedSystemVoices: [AVSpeechSynthesisVoice] = []
 
     private var settings: UserSettings {
         if let existing = allSettings.first {
@@ -43,6 +44,9 @@ struct SettingsSheet: View {
                 checkServerStatus()
             }
             synthesisService.loadStatus(bookId: bookId, paragraphs: allParagraphs)
+            cachedSystemVoices = AVSpeechSynthesisVoice.speechVoices()
+                .filter { $0.language.hasPrefix("zh-TW") }
+                .sorted { $0.name < $1.name }
         }
     }
 
@@ -849,11 +853,7 @@ struct SettingsSheet: View {
         }
     }
 
-    private var availableSystemVoices: [AVSpeechSynthesisVoice] {
-        AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.hasPrefix("zh-TW") }
-            .sorted { $0.name < $1.name }
-    }
+    private var availableSystemVoices: [AVSpeechSynthesisVoice] { cachedSystemVoices }
 
     private func checkServerStatus() {
         serverStatus = .checking

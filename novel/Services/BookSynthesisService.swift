@@ -33,18 +33,22 @@ final class BookSynthesisService {
     /// 從磁碟讀取已快取數量，更新進度狀態（在 sheet appear 時呼叫）
     func loadStatus(bookId: UUID, paragraphs: [String]) {
         totalCount = paragraphs.count
-        nonEmptyCount = paragraphs.filter {
-            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }.count
-
-        var count = 0
-        for (index, text) in paragraphs.enumerated() {
-            let isEmpty = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            if isEmpty || cache.isCached(bookId: bookId, index: index) {
-                count += 1
+        let cache = self.cache
+        Task.detached(priority: .utility) {
+            var cachedCount = 0
+            var nonEmpty = 0
+            for (index, text) in paragraphs.enumerated() {
+                let isEmpty = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                if !isEmpty { nonEmpty += 1 }
+                if isEmpty || cache.isCached(bookId: bookId, index: index) {
+                    cachedCount += 1
+                }
+            }
+            await MainActor.run {
+                self.nonEmptyCount = nonEmpty
+                self.synthesizedCount = cachedCount
             }
         }
-        synthesizedCount = count
     }
 
     /// 開始批次合成（已快取的段落自動跳過，支援重入）

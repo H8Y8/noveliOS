@@ -11,7 +11,13 @@ final class SystemTTSProvider: NSObject, TTSProvider {
     private let synthesizer = AVSpeechSynthesizer()
 
     /// 追蹤佇列中各段落對應的 utterance（供 delegate 識別段落索引）
-    private var queuedUtterances: [(paragraphIndex: Int, utterance: AVSpeechUtterance)] = []
+    /// 使用 NSLock 保護，因為 delegate 回調在任意執行緒
+    private let utteranceLock = NSLock()
+    private var _queuedUtterances: [(paragraphIndex: Int, utterance: AVSpeechUtterance)] = []
+    private var queuedUtterances: [(paragraphIndex: Int, utterance: AVSpeechUtterance)] {
+        get { utteranceLock.withLock { _queuedUtterances } }
+        set { utteranceLock.withLock { _queuedUtterances = newValue } }
+    }
 
     /// 段落開始朗讀時回調，傳入段落索引（供 TTSService 更新高亮）
     var onParagraphStarted: ((Int) -> Void)?

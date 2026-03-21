@@ -29,6 +29,14 @@ struct PaginationEngine {
         let paragraphSpacing = CGFloat(fontSize) * 0.55 + 4
         let verticalPadding = NNSpacing.xxs * 2 // 段落上下 padding
 
+        // 建立共用 attributes（避免每段重建 NSMutableParagraphStyle）
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = lineSpacingPts
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .paragraphStyle: paragraphStyle
+        ]
+
         var pages: [[Int]] = []
         var currentPage: [Int] = []
         var currentHeight: CGFloat = 0
@@ -36,8 +44,7 @@ struct PaginationEngine {
         for i in 0..<paragraphs.count {
             let textHeight = measureParagraph(
                 text: paragraphs[i],
-                font: font,
-                lineSpacing: lineSpacingPts,
+                attributes: attributes,
                 maxWidth: availableSize.width
             ) + verticalPadding
 
@@ -62,12 +69,16 @@ struct PaginationEngine {
         return pages
     }
 
-    /// 找出指定段落索引所在的頁碼（0-based）
+    /// 找出指定段落索引所在的頁碼（0-based），使用二分搜尋
     static func pageIndex(forParagraph paragraphIndex: Int, in pages: [[Int]]) -> Int {
-        for (pageIdx, page) in pages.enumerated() {
-            if page.contains(paragraphIndex) {
-                return pageIdx
-            }
+        guard !pages.isEmpty else { return 0 }
+        var lo = 0, hi = pages.count - 1
+        while lo <= hi {
+            let mid = (lo + hi) / 2
+            guard let first = pages[mid].first, let last = pages[mid].last else { break }
+            if paragraphIndex < first { hi = mid - 1 }
+            else if paragraphIndex > last { lo = mid + 1 }
+            else { return mid }
         }
         return max(pages.count - 1, 0)
     }
@@ -76,18 +87,9 @@ struct PaginationEngine {
 
     private static func measureParagraph(
         text: String,
-        font: UIFont,
-        lineSpacing: CGFloat,
+        attributes: [NSAttributedString.Key: Any],
         maxWidth: CGFloat
     ) -> CGFloat {
-        let paragraphStyle = NSMutableParagraphStyle()
-        paragraphStyle.lineSpacing = lineSpacing
-
-        let attributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .paragraphStyle: paragraphStyle
-        ]
-
         let boundingRect = (text as NSString).boundingRect(
             with: CGSize(width: maxWidth, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading],

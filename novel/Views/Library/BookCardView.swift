@@ -145,10 +145,14 @@ struct BookCardView: View {
 
     // MARK: - Helpers
 
+    private static let relativeDateFormatter: RelativeDateTimeFormatter = {
+        let f = RelativeDateTimeFormatter()
+        f.locale = Locale(identifier: "zh-TW")
+        f.unitsStyle = .abbreviated
+        return f
+    }()
+
     private var relativeDate: String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "zh-TW")
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: book.dateLastRead, relativeTo: Date())
+        Self.relativeDateFormatter.localizedString(for: book.dateLastRead, relativeTo: Date())
     }
 }

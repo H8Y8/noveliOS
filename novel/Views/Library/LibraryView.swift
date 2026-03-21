@@ -191,39 +191,50 @@ struct LibraryView: View {
             }
 
             isImporting = true
+            let fileName = url.lastPathComponent
+            let title = url.deletingPathExtension().lastPathComponent
 
-            Task {
-                defer {
-                    url.stopAccessingSecurityScopedResource()
-                    isImporting = false
-                }
-
+            Task.detached(priority: .userInitiated) {
                 do {
                     let data = try Data(contentsOf: url)
+                    url.stopAccessingSecurityScopedResource()
+
                     guard let content = EncodingDetector.decodeString(from: data) else {
-                        importErrorMessage = "無法辨識檔案編碼，請確認檔案為文字格式"
-                        showImportError = true
+                        await MainActor.run {
+                            self.importErrorMessage = "無法辨識檔案編碼，請確認檔案為文字格式"
+                            self.showImportError = true
+                            self.isImporting = false
+                        }
                         return
                     }
 
                     guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                        importErrorMessage = "檔案內容為空"
-                        showImportError = true
+                        await MainActor.run {
+                            self.importErrorMessage = "檔案內容為空"
+                            self.showImportError = true
+                            self.isImporting = false
+                        }
                         return
                     }
 
-                    let title   = url.deletingPathExtension().lastPathComponent
-                    let book    = Book(title: title, fileName: url.lastPathComponent, content: content)
+                    // 章節解析在背景完成（CPU 密集）
                     let chapters = ChapterParser.parseChapters(from: content)
-                    book.chapters = chapters
-                    for chapter in chapters { chapter.book = book }
 
-                    modelContext.insert(book)
-                    try modelContext.save()
+                    await MainActor.run {
+                        let book = Book(title: title, fileName: fileName, content: content)
+                        book.chapters = chapters
+                        for chapter in chapters { chapter.book = book }
+                        self.modelContext.insert(book)
+                        try? self.modelContext.save()
+                        self.isImporting = false
+                    }
 
                 } catch {
-                    importErrorMessage = "讀取檔案時發生錯誤：\(error.localizedDescription)"
-                    showImportError = true
+                    await MainActor.run {
+                        self.importErrorMessage = "讀取檔案時發生錯誤：\(error.localizedDescription)"
+                        self.showImportError = true
+                        self.isImporting = false
+                    }
                 }
             }
 

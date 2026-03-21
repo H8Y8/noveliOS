@@ -52,6 +52,7 @@ struct NarratorPlayerView: View {
     @State private var selectedSleepTimer: SleepTimerOption = .off
     @State private var timerDisplayTask: Task<Void, Never>?
     @State private var remainingSeconds: Int = 0
+    @State private var cachedSystemVoices: [AVSpeechSynthesisVoice] = []
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -95,6 +96,9 @@ struct NarratorPlayerView: View {
         .onAppear {
             syncSleepTimerState()
             synthesisService.loadStatus(bookId: book.id, paragraphs: allParagraphs)
+            cachedSystemVoices = AVSpeechSynthesisVoice.speechVoices()
+                .filter { $0.language.hasPrefix("zh-TW") }
+                .sorted { $0.name < $1.name }
         }
         .onDisappear { timerDisplayTask?.cancel() }
         .onChange(of: ttsService.sleepTimerEndDate) { _, _ in startTimerCountdown() }
@@ -109,8 +113,8 @@ struct NarratorPlayerView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            .scaleEffect(2.2)
-            .blur(radius: 90)
+            .blur(radius: 40)
+            .drawingGroup() // 柵格化避免每幀重算模糊
 
             Color.black.opacity(0.80)
         }
@@ -370,11 +374,7 @@ struct NarratorPlayerView: View {
         }
     }
 
-    private var availableVoices: [AVSpeechSynthesisVoice] {
-        AVSpeechSynthesisVoice.speechVoices()
-            .filter { $0.language.hasPrefix("zh-TW") }
-            .sorted { $0.name < $1.name }
-    }
+    private var availableVoices: [AVSpeechSynthesisVoice] { cachedSystemVoices }
 
     // MARK: - Synthesis Section
 

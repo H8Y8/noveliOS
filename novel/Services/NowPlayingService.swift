@@ -68,6 +68,17 @@ class NowPlayingService {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
 
+    /// 移除所有遠端控制命令（防止閉包累積）
+    func removeRemoteCommands() {
+        let center = MPRemoteCommandCenter.shared()
+        center.playCommand.removeTarget(nil)
+        center.pauseCommand.removeTarget(nil)
+        center.nextTrackCommand.removeTarget(nil)
+        center.previousTrackCommand.removeTarget(nil)
+        center.togglePlayPauseCommand.removeTarget(nil)
+        isSetup = false
+    }
+
     /// 清除鎖定畫面資訊
     func clearNowPlaying() {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil

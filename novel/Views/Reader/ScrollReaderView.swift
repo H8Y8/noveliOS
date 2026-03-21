@@ -35,8 +35,8 @@ struct ScrollReaderView: View {
                     // 頂部安全距離（工具列高 + 漸層高 + 呼吸空間）
                     Color.clear.frame(height: NNSpacing.toolbarHeight + 28 + NNSpacing.md)
 
-                    ForEach(Array(paragraphs.enumerated()), id: \.offset) { index, paragraph in
-                        paragraphView(index: index, text: paragraph)
+                    ForEach(0..<paragraphs.count, id: \.self) { index in
+                        paragraphView(index: index, text: paragraphs[index])
                     }
 
                     // 底部安全距離（底部工具列淨空）
@@ -92,7 +92,10 @@ struct ScrollReaderView: View {
             )
             .id(index)
             .onAppear {
-                visibleParagraphIndex = index
+                // 只在每5段或最末段更新，避免快速滾動時觸發寫入風暴
+                if index % 5 == 0 || index == paragraphs.count - 1 {
+                    visibleParagraphIndex = index
+                }
             }
     }
 
