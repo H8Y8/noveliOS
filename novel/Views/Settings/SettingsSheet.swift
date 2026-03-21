@@ -12,6 +12,7 @@ struct SettingsSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(TTSService.self) private var ttsService
     @Query private var allSettings: [UserSettings]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var serverStatus: ServerStatus = .unknown
 
@@ -104,7 +105,7 @@ struct SettingsSheet: View {
                     let isSelected = settings.theme == themeOption.rawValue
 
                     Button {
-                        withAnimation(NNAnimation.micro) {
+                        withAnimation(reduceMotion ? nil : NNAnimation.micro) {
                             settings.theme = themeOption.rawValue
                         }
                     } label: {
@@ -160,7 +161,7 @@ struct SettingsSheet: View {
     private func readingModeChip(mode: ReadingMode) -> some View {
         let isSelected = settings.readingMode == mode
         return Button {
-            withAnimation(NNAnimation.micro) {
+            withAnimation(reduceMotion ? nil : NNAnimation.micro) {
                 settings.readingMode = mode
             }
         } label: {
@@ -177,14 +178,15 @@ struct SettingsSheet: View {
             }
             .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
             .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: NNSpacing.minTouchTarget, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 10)
                     .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(mode.displayName)閱讀模式")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: - Font Section
@@ -249,7 +251,7 @@ struct SettingsSheet: View {
     private func fontChip(label: String, value: String) -> some View {
         let isSelected = settings.fontFamily == value
         return Button {
-            withAnimation(NNAnimation.micro) {
+            withAnimation(reduceMotion ? nil : NNAnimation.micro) {
                 settings.fontFamily = value
             }
         } label: {
@@ -258,13 +260,15 @@ struct SettingsSheet: View {
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .frame(minHeight: NNSpacing.minTouchTarget)
                 .background(
                     Capsule()
                         .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(label)字體")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: - Layout Section
@@ -284,7 +288,7 @@ struct SettingsSheet: View {
                     let isSelected = abs(settings.lineSpacing - spacing.rawValue) < 0.05
 
                     Button {
-                        withAnimation(NNAnimation.micro) {
+                        withAnimation(reduceMotion ? nil : NNAnimation.micro) {
                             settings.lineSpacing = spacing.rawValue
                         }
                     } label: {
@@ -297,13 +301,15 @@ struct SettingsSheet: View {
                         }
                         .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
+                        .frame(minHeight: NNSpacing.minTouchTarget)
                         .background(
                             Capsule()
                                 .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
                         )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("\(spacing.displayName)行距")
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
         }
@@ -349,7 +355,7 @@ struct SettingsSheet: View {
     private func engineChip(label: String, subtitle: String, type: TTSProviderType) -> some View {
         let isSelected = settings.ttsProviderType == type
         return Button {
-            withAnimation(NNAnimation.micro) {
+            withAnimation(reduceMotion ? nil : NNAnimation.micro) {
                 settings.ttsProviderType = type
                 ttsService.setProviderType(type)
                 if type == .edge {
@@ -366,14 +372,15 @@ struct SettingsSheet: View {
             }
             .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
             .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: NNSpacing.minTouchTarget)
             .background(
                 Capsule()
                     .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(label)語音引擎")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: - Edge TTS Settings
@@ -451,9 +458,9 @@ struct SettingsSheet: View {
                 .foregroundStyle(NNColor.textSecondary)
 
             HStack(spacing: NNSpacing.sm) {
-                edgeVoiceChip(label: "曉辰 ♀", id: "zh-TW-HsiaoChenNeural")
-                edgeVoiceChip(label: "曉語 ♀", id: "zh-TW-HsiaoYuNeural")
-                edgeVoiceChip(label: "雲哲 ♂", id: "zh-TW-YunJheNeural")
+                edgeVoiceChip(label: "曉辰", id: "zh-TW-HsiaoChenNeural")
+                edgeVoiceChip(label: "曉語", id: "zh-TW-HsiaoYuNeural")
+                edgeVoiceChip(label: "雲哲", id: "zh-TW-YunJheNeural")
             }
         }
     }
@@ -469,13 +476,15 @@ struct SettingsSheet: View {
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .frame(minHeight: NNSpacing.minTouchTarget)
                 .background(
                     Capsule()
                         .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(label)語音")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: - Azure TTS Settings
@@ -545,9 +554,9 @@ struct SettingsSheet: View {
                 .foregroundStyle(NNColor.textSecondary)
 
             HStack(spacing: NNSpacing.sm) {
-                azureVoiceChip(label: "曉辰 ♀", id: "zh-TW-HsiaoChenNeural")
-                azureVoiceChip(label: "曉語 ♀", id: "zh-TW-HsiaoYuNeural")
-                azureVoiceChip(label: "雲哲 ♂", id: "zh-TW-YunJheNeural")
+                azureVoiceChip(label: "曉辰", id: "zh-TW-HsiaoChenNeural")
+                azureVoiceChip(label: "曉語", id: "zh-TW-HsiaoYuNeural")
+                azureVoiceChip(label: "雲哲", id: "zh-TW-YunJheNeural")
             }
         }
     }
@@ -563,13 +572,15 @@ struct SettingsSheet: View {
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .frame(minHeight: NNSpacing.minTouchTarget)
                 .background(
                     Capsule()
                         .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(label)語音")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: - System TTS Settings
@@ -610,13 +621,15 @@ struct SettingsSheet: View {
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
                 .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .frame(minHeight: NNSpacing.minTouchTarget)
                 .background(
                     Capsule()
                         .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("\(label)語音")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: - Speed Slider
@@ -651,6 +664,8 @@ struct SettingsSheet: View {
                     step: 0.05
                 )
                 .tint(NNColor.accent)
+                .accessibilityLabel("語速調整")
+                .accessibilityValue(rateDescription)
 
                 Text("快")
                     .font(NNFont.uiCaption)
@@ -676,12 +691,12 @@ struct SettingsSheet: View {
                         .foregroundStyle(NNColor.accentLight)
                         .monospacedDigit()
                         .contentTransition(.numericText())
-                        .animation(.easeOut(duration: 0.2), value: synthesisService.synthesizedCount)
+                        .animation(reduceMotion ? nil : NNAnimation.progressUpdate, value: synthesisService.synthesizedCount)
                 }
 
                 ProgressView(value: synthesisService.progress)
                     .tint(NNColor.accentLight)
-                    .animation(.linear(duration: 0.25), value: synthesisService.progress)
+                    .animation(reduceMotion ? nil : .linear(duration: 0.25), value: synthesisService.progress)
 
                 Text(synthesisHintText)
                     .font(NNFont.uiCaption2)
@@ -727,13 +742,14 @@ struct SettingsSheet: View {
             }
             .foregroundStyle(destructive ? .red.opacity(0.8) : NNColor.accentLight)
             .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .frame(minHeight: NNSpacing.minTouchTarget)
             .background(
                 Capsule()
                     .fill(destructive ? Color.red.opacity(0.12) : NNColor.accent.opacity(0.15))
             )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     // MARK: - Reusable Section Card

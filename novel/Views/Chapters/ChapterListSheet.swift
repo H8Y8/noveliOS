@@ -8,6 +8,7 @@ struct ChapterListSheet: View {
     let onDismiss: () -> Void
 
     @State private var searchText = ""
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: - Filtered Items
 
@@ -128,6 +129,8 @@ struct ChapterListSheet: View {
                     .font(.system(size: 26))
                     .symbolRenderingMode(.hierarchical)
                     .foregroundStyle(NNColor.textTertiary)
+                    .frame(minWidth: NNSpacing.minTouchTarget, minHeight: NNSpacing.minTouchTarget)
+                    .contentShape(Rectangle())
             }
             .accessibilityLabel("關閉目錄")
         }
@@ -156,7 +159,10 @@ struct ChapterListSheet: View {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 14))
                         .foregroundStyle(NNColor.textTertiary)
+                        .frame(minWidth: NNSpacing.minTouchTarget, minHeight: NNSpacing.minTouchTarget)
+                        .contentShape(Rectangle())
                 }
+                .accessibilityLabel("清除搜尋")
             }
         }
         .padding(.horizontal, 12)
@@ -216,8 +222,12 @@ struct ChapterListSheet: View {
                 guard searchText.isEmpty else { return }
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(200))
-                    withAnimation(.easeOut(duration: 0.2)) {
+                    if reduceMotion {
                         proxy.scrollTo(currentChapterIndex, anchor: .center)
+                    } else {
+                        withAnimation(NNAnimation.progressUpdate) {
+                            proxy.scrollTo(currentChapterIndex, anchor: .center)
+                        }
                     }
                 }
             }

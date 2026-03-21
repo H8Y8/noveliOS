@@ -14,6 +14,7 @@ struct LibraryView: View {
     @State private var bookToRename: Book?
     @State private var renameText       = ""
     @State private var showRenameAlert  = false
+    @State private var isImporting      = false
 
     private let columns = [
         GridItem(.flexible(), spacing: NNSpacing.cardSpacing),
@@ -72,6 +73,26 @@ struct LibraryView: View {
             }
             .navigationDestination(for: Book.self) { book in
                 ReaderView(book: book)
+            }
+            .overlay {
+                if isImporting {
+                    ZStack {
+                        Color.black.opacity(0.4).ignoresSafeArea()
+                        VStack(spacing: NNSpacing.md) {
+                            ProgressView()
+                                .tint(NNColor.accent)
+                                .scaleEffect(1.2)
+                            Text("匯入中…")
+                                .font(NNFont.uiBody)
+                                .foregroundStyle(NNColor.textPrimary)
+                        }
+                        .padding(NNSpacing.xl)
+                        .background(
+                            RoundedRectangle(cornerRadius: NNSpacing.cardCornerRadius)
+                                .fill(NNColor.cardBackground)
+                        )
+                    }
+                }
             }
         }
     }
@@ -145,7 +166,7 @@ struct LibraryView: View {
                 .font(NNFont.uiBody)
                 .foregroundStyle(.white)
                 .padding(.horizontal, NNSpacing.xl)
-                .padding(.vertical, 14)
+                .frame(minHeight: NNSpacing.minTouchTarget)
                 .background(NNColor.accent)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
@@ -168,34 +189,42 @@ struct LibraryView: View {
                 showImportError = true
                 return
             }
-            defer { url.stopAccessingSecurityScopedResource() }
 
-            do {
-                let data = try Data(contentsOf: url)
-                guard let content = EncodingDetector.decodeString(from: data) else {
-                    importErrorMessage = "無法辨識檔案編碼，請確認檔案為文字格式"
-                    showImportError = true
-                    return
+            isImporting = true
+
+            Task {
+                defer {
+                    url.stopAccessingSecurityScopedResource()
+                    isImporting = false
                 }
 
-                guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                    importErrorMessage = "檔案內容為空"
+                do {
+                    let data = try Data(contentsOf: url)
+                    guard let content = EncodingDetector.decodeString(from: data) else {
+                        importErrorMessage = "無法辨識檔案編碼，請確認檔案為文字格式"
+                        showImportError = true
+                        return
+                    }
+
+                    guard !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                        importErrorMessage = "檔案內容為空"
+                        showImportError = true
+                        return
+                    }
+
+                    let title   = url.deletingPathExtension().lastPathComponent
+                    let book    = Book(title: title, fileName: url.lastPathComponent, content: content)
+                    let chapters = ChapterParser.parseChapters(from: content)
+                    book.chapters = chapters
+                    for chapter in chapters { chapter.book = book }
+
+                    modelContext.insert(book)
+                    try modelContext.save()
+
+                } catch {
+                    importErrorMessage = "讀取檔案時發生錯誤：\(error.localizedDescription)"
                     showImportError = true
-                    return
                 }
-
-                let title   = url.deletingPathExtension().lastPathComponent
-                let book    = Book(title: title, fileName: url.lastPathComponent, content: content)
-                let chapters = ChapterParser.parseChapters(from: content)
-                book.chapters = chapters
-                for chapter in chapters { chapter.book = book }
-
-                modelContext.insert(book)
-                try modelContext.save()
-
-            } catch {
-                importErrorMessage = "讀取檔案時發生錯誤：\(error.localizedDescription)"
-                showImportError = true
             }
 
         case .failure(let error):

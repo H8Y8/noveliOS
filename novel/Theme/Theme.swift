@@ -199,6 +199,12 @@ enum NNAnimation {
 
     /// 進度條拖拽反饋
     static let sliderFeedback = Animation.interactiveSpring(response: 0.3, dampingFraction: 0.8)
+
+    /// 進度數值更新
+    static let progressUpdate = Animation.easeOut(duration: 0.2)
+
+    /// 側欄滑入
+    static let sidebarSlide   = Animation.easeOut(duration: 0.25)
 }
 
 // MARK: - SF Symbols Reference

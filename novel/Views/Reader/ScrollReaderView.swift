@@ -24,6 +24,8 @@ struct ScrollReaderView: View {
     @Binding var visibleParagraphIndex: Int
     @Binding var scrollCommand: ScrollCommand?
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     // MARK: - Body
 
     var body: some View {
@@ -44,8 +46,12 @@ struct ScrollReaderView: View {
             .onChange(of: highlightedParagraphIndex) { _, newIndex in
                 // TTS 推進時自動捲動至當前段落
                 if let newIndex {
-                    withAnimation(NNAnimation.ttsHighlight) {
+                    if reduceMotion {
                         proxy.scrollTo(newIndex, anchor: .center)
+                    } else {
+                        withAnimation(NNAnimation.ttsHighlight) {
+                            proxy.scrollTo(newIndex, anchor: .center)
+                        }
                     }
                 }
             }
@@ -82,7 +88,7 @@ struct ScrollReaderView: View {
                 RoundedRectangle(cornerRadius: 5)
                     .fill(isHighlighted ? theme.highlightColor : Color.clear)
                     .padding(.horizontal, NNSpacing.readerHorizontal - 6)
-                    .animation(NNAnimation.ttsHighlight, value: highlightedParagraphIndex)
+                    .animation(reduceMotion ? nil : NNAnimation.ttsHighlight, value: highlightedParagraphIndex)
             )
             .id(index)
             .onAppear {

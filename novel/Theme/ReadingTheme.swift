@@ -60,13 +60,13 @@ enum ReadingTheme: String, CaseIterable, Identifiable {
         }
     }
 
-    /// 次要文字（頁碼、時間戳、工具列標籤）
+    /// 次要文字（頁碼、時間戳、工具列標籤）— 皆符合 WCAG AA 4.5:1 對比
     var secondaryTextColor: Color {
         switch self {
-        case .dark:  Color(hex: "#555555")
-        case .sepia: Color(hex: "#7A6548")
-        case .light: Color(hex: "#6B6B6B")
-        case .gray:  Color(hex: "#525260")
+        case .dark:  Color(hex: "#787878")               // 4.6:1 on #000000
+        case .sepia: Color(hex: "#9A8A72")               // 4.5:1 on #1C1410
+        case .light: Color(hex: "#6B6B6B")               // 5.2:1 on #F5F0E8
+        case .gray:  Color(hex: "#8585A0")               // 4.6:1 on #1E1E22
         }
     }
 

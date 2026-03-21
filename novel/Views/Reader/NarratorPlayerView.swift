@@ -137,10 +137,11 @@ struct NarratorPlayerView: View {
                 }
                 .foregroundStyle(NNColor.accentLight)
                 .transition(.opacity)
+                .accessibilityLabel("睡眠計時器剩餘 \(remainingSeconds / 60) 分 \(remainingSeconds % 60) 秒")
             }
         }
         .padding(.bottom, NNSpacing.sm)
-        .animation(NNAnimation.micro, value: remainingSeconds)
+        .animation(reduceMotion ? nil : NNAnimation.micro, value: remainingSeconds)
     }
 
     // MARK: - Book Header
@@ -303,6 +304,8 @@ struct NarratorPlayerView: View {
                     step: 0.025
                 )
                 .tint(NNColor.accent)
+                .accessibilityLabel("朗讀語速")
+                .accessibilityValue(speedLabel)
 
                 Text("快")
                     .font(NNFont.uiCaption)
@@ -542,7 +545,7 @@ struct NarratorPlayerView: View {
                 .fontWeight(isSelected ? .semibold : .regular)
                 .foregroundStyle(isSelected ? Color.black.opacity(0.85) : .white.opacity(0.75))
                 .padding(.horizontal, 12)
-                .padding(.vertical, 7)
+                .frame(minHeight: NNSpacing.minTouchTarget)
                 .background(
                     Capsule()
                         .fill(isSelected ? NNColor.accentLight : Color.white.opacity(0.12))
@@ -550,6 +553,8 @@ struct NarratorPlayerView: View {
                 )
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: - Sleep Timer Countdown

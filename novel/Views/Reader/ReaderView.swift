@@ -9,6 +9,7 @@ struct ReaderView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(TTSService.self) private var ttsService
     @Query private var allSettings: [UserSettings]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showToolbars = true
     @State private var showSettings = false
@@ -80,7 +81,7 @@ struct ReaderView: View {
                     visibleParagraphIndex: $visibleParagraphIndex,
                     scrollCommand: $scrollCommand,
                     onTap: {
-                        withAnimation(NNAnimation.toolbarToggle) {
+                        withAnimation(reduceMotion ? nil : NNAnimation.toolbarToggle) {
                             showToolbars.toggle()
                         }
                     }
@@ -268,8 +269,8 @@ struct ReaderView: View {
                             }
                         }
                         .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
-                        .animation(NNAnimation.micro, value: synthesisService.isSynthesizing)
-                        .animation(NNAnimation.micro, value: synthesisService.isComplete)
+                        .animation(reduceMotion ? nil : NNAnimation.micro, value: synthesisService.isSynthesizing)
+                        .animation(reduceMotion ? nil : NNAnimation.micro, value: synthesisService.isComplete)
                     }
                     .accessibilityLabel(
                         synthesisService.isSynthesizing ? "取消合成" :
@@ -279,7 +280,7 @@ struct ReaderView: View {
 
                 // 目錄按鈕
                 Button {
-                    withAnimation(.easeOut(duration: 0.25)) {
+                    withAnimation(reduceMotion ? nil : NNAnimation.sidebarSlide) {
                         showChapterList = true
                     }
                 } label: {
@@ -334,7 +335,7 @@ struct ReaderView: View {
             .padding(.top, NNSpacing.xs)
             .padding(.bottom, NNSpacing.sm)
             .background(theme.toolbarStyle, ignoresSafeAreaEdges: .bottom)
-            .animation(NNAnimation.toolbarToggle, value: ttsService.hasContent)
+            .animation(reduceMotion ? nil : NNAnimation.toolbarToggle, value: ttsService.hasContent)
         }
     }
 
@@ -362,6 +363,8 @@ struct ReaderView: View {
                     step: 1
                 )
                 .tint(theme.textColor.opacity(0.45))
+                .accessibilityLabel("章節進度")
+                .accessibilityValue("第 \(currentChapterIndex + 1) 章，共 \(book.sortedChapters.count) 章")
                 .onChange(of: currentChapterIndex) { _, _ in
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 }
@@ -466,7 +469,7 @@ struct ReaderView: View {
             Color.black.opacity(0.45)
                 .ignoresSafeArea()
                 .onTapGesture {
-                    withAnimation(.easeOut(duration: 0.25)) {
+                    withAnimation(reduceMotion ? nil : NNAnimation.sidebarSlide) {
                         showChapterList = false
                     }
                 }
@@ -496,7 +499,7 @@ struct ReaderView: View {
             }
             .transition(.move(edge: .trailing))
         }
-        .animation(.easeOut(duration: 0.25), value: showChapterList)
+        .animation(reduceMotion ? nil : NNAnimation.sidebarSlide, value: showChapterList)
     }
 
     // MARK: - Paragraph Cache

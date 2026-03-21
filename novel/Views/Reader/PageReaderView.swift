@@ -47,6 +47,10 @@ struct PageReaderView: UIViewControllerRepresentable {
         )
         pvc.view.addGestureRecognizer(tap)
 
+        // VoiceOver：提供無障礙翻頁動作
+        pvc.view.accessibilityLabel = "閱讀頁面"
+        pvc.view.accessibilityHint = "左右滑動翻頁"
+
         // 設定初始頁
         let initialPage = PaginationEngine.pageIndex(
             forParagraph: visibleParagraphIndex, in: pages
@@ -273,6 +277,8 @@ private struct PageContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(theme.backgroundColor)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("第 \(pageNumber) 頁，共 \(totalPages) 頁")
     }
 
     @ViewBuilder
