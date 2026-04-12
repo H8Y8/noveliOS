@@ -824,11 +824,17 @@ struct SettingsSheet: View {
     private var edgeServerURLError: String? {
         let urlString = settings.edgeTTSServerURL ?? ""
         guard !urlString.isEmpty else { return nil }
-        guard let url = URL(string: urlString),
-              let scheme = url.scheme, !scheme.isEmpty,
-              let host = url.host, !host.isEmpty,
-              url.port != nil else {
-            return String(localized: "格式錯誤，需包含 scheme、host 與 port（如 http://192.168.1.100:5050）")
+        let urls = urlString
+            .components(separatedBy: CharacterSet(charactersIn: ",\n"))
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        for entry in urls {
+            guard let url = URL(string: entry),
+                  let scheme = url.scheme, !scheme.isEmpty,
+                  let host = url.host, !host.isEmpty,
+                  url.port != nil else {
+                return String(localized: "格式錯誤，需包含 scheme、host 與 port（如 http://192.168.1.100:5050）")
+            }
         }
         return nil
     }
