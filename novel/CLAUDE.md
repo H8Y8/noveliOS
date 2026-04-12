@@ -27,6 +27,8 @@ xcodebuild -project novel/novel.xcodeproj -scheme novel -destination 'platform=i
 xcodebuild -project novel/novel.xcodeproj -scheme novelTests -destination 'platform=iOS Simulator,name=iPhone 16' test
 ```
 
+> **新增 Swift 檔案不需要修改 `project.pbxproj`。** 本專案使用 Xcode 16+ 的 `PBXFileSystemSynchronizedRootGroup`，`novel/novel/` 目錄下的所有 `.swift` 檔案會自動被 Xcode 識別並納入編譯。直接建立檔案即可。
+
 ## Architecture
 
 ### Data Flow
@@ -50,6 +52,16 @@ xcodebuild -project novel/novel.xcodeproj -scheme novelTests -destination 'platf
 
 ### Theme
 `ReadingTheme` enum (`novel/novel/Theme/ReadingTheme.swift`) — four themes: `.light`, `.sepia`, `.gray`, `.dark`. Provides `backgroundColor`, `textColor`, `highlightColor`, `toolbarStyle` (Material).
+
+## UI/UX 設計規範
+
+- 本專案使用 uiux pro max skill 進行 UI 設計
+- 設計簡報見 DESIGN_BRIEF.md
+- 所有 UI 元件必須支援四套閱讀主題色彩切換
+- 閱讀器是核心畫面，任何 UI 變更都要確保不影響閱讀體驗
+- 動畫使用 SwiftUI 原生 animation，不引入 Lottie 等第三方動畫庫
+- 圖標統一使用 SF Symbols
+- 所有中文介面字串用 LocalizedStringKey
 
 ## Important Conventions
 

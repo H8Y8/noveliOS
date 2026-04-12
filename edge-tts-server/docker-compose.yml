@@ -1,0 +1,13 @@
+services:
+  edge-tts:
+    image: travisvn/openai-edge-tts:latest
+    container_name: edge-tts-server
+    ports:
+      - "5050:5050"
+    environment:
+      - DEFAULT_VOICE=zh-TW-HsiaoChenNeural
+      - DEFAULT_RESPONSE_FORMAT=mp3
+      - DEFAULT_SPEED=1.0
+      - ALLOW_ANY_VOICE=true
+      - REQUIRE_API_KEY=false
+    restart: unless-stopped

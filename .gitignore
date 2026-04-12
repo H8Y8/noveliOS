@@ -1,0 +1,29 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node (edge-tts-server)
+node_modules/
+npm-debug.log*
+
+# Xcode user data
+xcuserdata/
+
+# Test novels (large files)
+*.txt
+!README*.txt
+
+# Misc
+*.swp
+*.swo
+*~
+.env
