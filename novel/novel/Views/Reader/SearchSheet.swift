@@ -11,7 +11,9 @@ struct SearchSheet: View {
 
     var body: some View {
         ZStack {
-            NNColor.appBackground.ignoresSafeArea()
+            NNColor.appBackground
+                .inkPaper()
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // 搜尋列

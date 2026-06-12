@@ -16,13 +16,15 @@ struct BookmarkListSheet: View {
 
     var body: some View {
         ZStack {
-            NNColor.appBackground.ignoresSafeArea()
+            NNColor.appBackground
+                .inkPaper()
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // 標題列
                 HStack {
                     Text("書籤")
-                        .font(NNFont.uiHeadline)
+                        .font(NNFont.inkTitle(size: 17))
                         .foregroundStyle(NNColor.textPrimary)
                     Spacer()
                     Text("\(sortedBookmarks.count)")
