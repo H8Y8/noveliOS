@@ -32,7 +32,9 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                NNColor.appBackground.ignoresSafeArea()
+                NNColor.appBackground
+                    .inkPaper()
+                    .ignoresSafeArea()
 
                 if books.isEmpty {
                     emptyStateView
@@ -52,6 +54,7 @@ struct LibraryView: View {
                             .foregroundStyle(NNColor.accent)
                             .imageScale(.medium)
                     }
+                    .buttonStyle(InkButtonStyle())
                     .accessibilityLabel("匯入小說")
                     .disabled(isImporting)
                 }
@@ -131,7 +134,7 @@ struct LibraryView: View {
                             appearIndex: index
                         )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(InkScaleButtonStyle())
                     .disabled(isImporting)
                     .contextMenu {
                         Button {
@@ -163,16 +166,15 @@ struct LibraryView: View {
         VStack(spacing: NNSpacing.lg) {
             Spacer()
 
-            Image(systemName: "books.vertical")
-                .font(.system(size: 60, weight: .thin))
-                .foregroundStyle(NNColor.textTertiary)
+            SealView(text: "書", size: 64)
+                .accessibilityHidden(true)
 
             VStack(spacing: NNSpacing.sm) {
-                Text("書架是空的")
-                    .font(NNFont.uiTitle)
+                Text("書齋虛位以待")
+                    .font(NNFont.inkTitle(size: 22))
                     .foregroundStyle(NNColor.textPrimary)
 
-                Text("匯入 .txt 格式的小說\n開始你的閱讀之旅")
+                Text("匯入 .txt 格式的小說\n展卷，入墨色山水")
                     .font(NNFont.uiBody)
                     .foregroundStyle(NNColor.textSecondary)
                     .multilineTextAlignment(.center)
@@ -187,12 +189,13 @@ struct LibraryView: View {
                         .fontWeight(.medium)
                 }
                 .font(NNFont.uiBody)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color(hex: "#F4EFE6"))
                 .padding(.horizontal, NNSpacing.xl)
                 .frame(minHeight: NNSpacing.minTouchTarget)
                 .background(NNColor.accent)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
+            .buttonStyle(InkScaleButtonStyle())
             .accessibilityLabel("匯入小說")
 
             Spacer()

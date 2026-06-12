@@ -17,10 +17,6 @@ struct BookCardView: View {
         return NNColor.coverPalettes[index]
     }
 
-    private var titleMonogram: String {
-        String(book.title.prefix(1))
-    }
-
     // MARK: - Body
 
     var body: some View {
@@ -40,9 +36,11 @@ struct BookCardView: View {
                 )
         )
         .opacity(appeared ? 1 : 0)
+        .scaleEffect(appeared || reduceMotion ? 1 : 0.92)
+        .blur(radius: appeared || reduceMotion ? 0 : 4)
         .offset(y: appeared ? 0 : 10)
         .onAppear {
-            let anim: Animation = reduceMotion ? .linear(duration: 0) : NNAnimation.cardAppear(index: appearIndex)
+            let anim: Animation = reduceMotion ? .linear(duration: 0) : NNAnimation.inkDrop(index: appearIndex)
             withAnimation(anim) { appeared = true }
         }
         .accessibilityElement(children: .combine)
@@ -55,31 +53,20 @@ struct BookCardView: View {
 
     private var coverArea: some View {
         ZStack {
-            // 演算法漸層封面
-            LinearGradient(
-                colors: [coverPalette.0, coverPalette.1],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            // 遠山水墨封面（依書名生成獨特山形 + 直排題簽）
+            InkCoverView(title: book.title, palette: coverPalette)
 
-            // 書名首字做大字裝飾（低透明度，呈現質感而不搶焦）
-            Text(titleMonogram)
-                .font(.system(size: 56, weight: .thin))
-                .foregroundStyle(.white.opacity(0.16))
-
-            // 朗讀中：右上角聲波徽章
+            // 朗讀中：左上角朱砂「聽」印 + 墨波
             if isPlaying {
                 VStack {
-                    HStack {
+                    HStack(spacing: 5) {
+                        SealView(text: "聽", size: 22)
+                        InkWaveform(isAnimating: true, maxHeight: 12)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 3)
+                            .background(NNColor.cardBackground.opacity(0.72))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
                         Spacer()
-                        Image(systemName: "waveform")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(NNColor.accent)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 5)
-                            .background(.black.opacity(0.45))
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .symbolEffect(.variableColor.iterative, options: .repeating)
                     }
                     Spacer()
                 }
@@ -93,29 +80,15 @@ struct BookCardView: View {
 
     private var infoArea: some View {
         VStack(alignment: .leading, spacing: NNSpacing.xs) {
-            // 書名
+            // 書名（宋體題字）
             Text(book.title)
-                .font(NNFont.uiSubheadline)
-                .fontWeight(.medium)
+                .font(NNFont.inkTitle(size: 14))
                 .foregroundStyle(NNColor.textPrimary)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
 
-            // 細進度條
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(NNColor.progressTrack)
-                        .frame(height: 2)
-                    Capsule()
-                        .fill(NNColor.progressFill)
-                        .frame(
-                            width: max(geo.size.width * book.readingProgress, 0),
-                            height: 2
-                        )
-                }
-            }
-            .frame(height: 2)
+            // 毛筆筆觸進度條
+            InkProgressBar(progress: book.readingProgress, height: 2)
 
             // 進度 % + 狀態標籤
             HStack(alignment: .center) {
