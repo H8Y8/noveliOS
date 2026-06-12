@@ -261,16 +261,25 @@ struct ReaderView: View {
                         .foregroundStyle(theme.textColor)
                         .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
                 }
-                .accessibilityLabel("返回")
+                .buttonStyle(InkButtonStyle())
+            .accessibilityLabel("返回")
 
                 Spacer()
 
-                // 章節標題
-                Text(currentChapter?.title ?? book.title)
-                    .font(NNFont.uiSubheadline)
-                    .foregroundStyle(theme.secondaryTextColor)
-                    .lineLimit(1)
-                    .padding(.horizontal, NNSpacing.sm)
+                // 章節標題（卷軸標籤式：宋體 + 左右細豎線）
+                HStack(spacing: NNSpacing.sm) {
+                    Rectangle()
+                        .fill(theme.separatorColor)
+                        .frame(width: 1, height: 14)
+                    Text(currentChapter?.title ?? book.title)
+                        .font(NNFont.inkTitle(size: 14, weight: .regular))
+                        .foregroundStyle(theme.secondaryTextColor)
+                        .lineLimit(1)
+                    Rectangle()
+                        .fill(theme.separatorColor)
+                        .frame(width: 1, height: 14)
+                }
+                .padding(.horizontal, NNSpacing.sm)
 
                 Spacer()
 
@@ -283,7 +292,8 @@ struct ReaderView: View {
                         .foregroundStyle(theme.secondaryTextColor)
                         .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
                 }
-                .accessibilityLabel("設定")
+                .buttonStyle(InkButtonStyle())
+            .accessibilityLabel("設定")
 
                 // 全書合成按鈕（僅 Edge / Azure 引擎）
                 if settings.ttsProviderType == .edge || settings.ttsProviderType == .azure {
@@ -330,7 +340,8 @@ struct ReaderView: View {
                         .foregroundStyle(theme.textColor)
                         .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
                 }
-                .accessibilityLabel("搜尋")
+                .buttonStyle(InkButtonStyle())
+            .accessibilityLabel("搜尋")
 
                 // 書籤按鈕
                 Button {
@@ -341,7 +352,8 @@ struct ReaderView: View {
                         .foregroundStyle(theme.textColor)
                         .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
                 }
-                .accessibilityLabel("書籤")
+                .buttonStyle(InkButtonStyle())
+            .accessibilityLabel("書籤")
 
                 // 目錄按鈕
                 Button {
@@ -354,7 +366,8 @@ struct ReaderView: View {
                         .foregroundStyle(theme.textColor)
                         .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
                 }
-                .accessibilityLabel("目錄")
+                .buttonStyle(InkButtonStyle())
+            .accessibilityLabel("目錄")
             }
             .padding(.horizontal, NNSpacing.sm)
             .frame(height: NNSpacing.toolbarHeight)
@@ -504,21 +517,23 @@ struct ReaderView: View {
                     .frame(width: NNSpacing.ttsSecondaryButtonSize,
                            height: NNSpacing.ttsSecondaryButtonSize)
             }
+            .buttonStyle(InkButtonStyle())
             .accessibilityLabel("上一段")
             .sensoryFeedback(.impact(weight: .light), trigger: ttsService.currentParagraphIndex)
 
             Spacer()
 
-            // 播放 / 暫停（主要按鈕，52pt 觸控面積）
+            // 播放 / 暫停（主要按鈕，52pt 觸控面積，朱砂點睛）
             Button {
                 toggleTTS()
             } label: {
                 Image(systemName: ttsService.isPlaying ? NNSymbol.pause : NNSymbol.play)
                     .font(.system(size: 30, weight: .medium))
-                    .foregroundStyle(theme.textColor)
+                    .foregroundStyle(NNColor.accent)
                     .frame(width: NNSpacing.ttsButtonSize, height: NNSpacing.ttsButtonSize)
                     .contentShape(Rectangle())
             }
+            .buttonStyle(InkButtonStyle())
             .accessibilityLabel(ttsService.isPlaying ? "暫停" : "播放")
             .sensoryFeedback(.impact(weight: .medium), trigger: ttsService.isPlaying)
 
@@ -534,6 +549,7 @@ struct ReaderView: View {
                     .frame(width: NNSpacing.ttsSecondaryButtonSize,
                            height: NNSpacing.ttsSecondaryButtonSize)
             }
+            .buttonStyle(InkButtonStyle())
             .accessibilityLabel("下一段")
             .sensoryFeedback(.impact(weight: .light), trigger: ttsService.currentParagraphIndex)
         }
