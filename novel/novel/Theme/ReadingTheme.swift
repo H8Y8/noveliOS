@@ -1,17 +1,17 @@
 import SwiftUI
 
-// MARK: - Reading Theme
+// MARK: - Reading Theme「水墨四境」
 // 四套閱讀主題，rawValue 與 SwiftData 儲存的字串對應，不可更改。
-// 設計規範：暗色系為主，台灣日系簡潔美學，無紅色/金色主色調。
+// 設計規範：暗色系為主，水墨美學——墨色偏暖灰（宣紙調），朱砂僅作極淡點綴。
 
 enum ReadingTheme: String, CaseIterable, Identifiable {
-    /// 墨夜：OLED 純黑底，柔灰字。省電、最適合暗房。
+    /// 夜墨：OLED 純黑底，柔墨灰字。省電、最適合暗房。
     case dark  = "dark"
-    /// 暖燈：深暖棕底，奶油字。模擬夜燈下閱讀質感。
+    /// 茶褐：深茶棕底，茶米字。模擬夜燈下閱讀質感。
     case sepia = "sepia"
-    /// 紙白：米白底，墨字。仿電子墨水紙，日間首選。
+    /// 宣紙：宣紙米底，濃墨字。仿宣紙質感，日間首選。
     case light = "light"
-    /// 薄霧：深灰底，低對比淺灰字。長時間護眼。
+    /// 黛青：青黛灰底，低對比青灰字。長時間護眼。
     case gray  = "gray"
 
     var id: String { rawValue }
@@ -20,18 +20,18 @@ enum ReadingTheme: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .dark:  String(localized: "墨夜")
-        case .sepia: String(localized: "暖燈")
-        case .light: String(localized: "紙白")
-        case .gray:  String(localized: "薄霧")
+        case .dark:  String(localized: "夜墨")
+        case .sepia: String(localized: "茶褐")
+        case .light: String(localized: "宣紙")
+        case .gray:  String(localized: "黛青")
         }
     }
 
     var displayDescription: String {
         switch self {
         case .dark:  String(localized: "OLED 省電・暗房首選")
-        case .sepia: String(localized: "暖燈質感・睡前閱讀")
-        case .light: String(localized: "仿紙質感・日間閱讀")
+        case .sepia: String(localized: "暖茶質感・睡前閱讀")
+        case .light: String(localized: "仿宣紙感・日間閱讀")
         case .gray:  String(localized: "低對比・長時間護眼")
         }
     }
@@ -42,9 +42,9 @@ enum ReadingTheme: String, CaseIterable, Identifiable {
     var backgroundColor: Color {
         switch self {
         case .dark:  Color(hex: "#000000")               // 純 OLED 黑
-        case .sepia: Color(hex: "#1C1410")               // 深暖棕
-        case .light: Color(hex: "#F5F0E8")               // 米白紙感
-        case .gray:  Color(hex: "#1E1E22")               // 深藍灰
+        case .sepia: Color(hex: "#221A10")               // 深茶棕
+        case .light: Color(hex: "#F4EFE6")               // 宣紙米
+        case .gray:  Color(hex: "#1B1F22")               // 青黛灰
         }
     }
 
@@ -53,20 +53,20 @@ enum ReadingTheme: String, CaseIterable, Identifiable {
     /// 主要閱讀文字色（非純白，減少刺激）
     var textColor: Color {
         switch self {
-        case .dark:  Color(hex: "#D4D4D4")               // 柔灰，非純白
-        case .sepia: Color(hex: "#E8D5B0")               // 暖奶油
-        case .light: Color(hex: "#1A1A1A")               // 近黑墨
-        case .gray:  Color(hex: "#B8B8C0")               // 低飽和淺灰
+        case .dark:  Color(hex: "#D4D2CA")               // 柔墨灰，非純白
+        case .sepia: Color(hex: "#E2D2AE")               // 茶米
+        case .light: Color(hex: "#2B2B26")               // 濃墨
+        case .gray:  Color(hex: "#B4BCC0")               // 低飽和青灰
         }
     }
 
     /// 次要文字（頁碼、時間戳、工具列標籤）— 皆符合 WCAG AA 4.5:1 對比
     var secondaryTextColor: Color {
         switch self {
-        case .dark:  Color(hex: "#787878")               // 4.6:1 on #000000
-        case .sepia: Color(hex: "#9A8A72")               // 4.5:1 on #1C1410
-        case .light: Color(hex: "#6B6B6B")               // 5.2:1 on #F5F0E8
-        case .gray:  Color(hex: "#8585A0")               // 4.6:1 on #1E1E22
+        case .dark:  Color(hex: "#7C7A74")               // ≥4.5:1 on #000000
+        case .sepia: Color(hex: "#9C8B6E")               // ≥4.5:1 on #221A10
+        case .light: Color(hex: "#6E6E64")               // ≥4.5:1 on #F4EFE6
+        case .gray:  Color(hex: "#7E8A90")               // ≥4.5:1 on #1B1F22
         }
     }
 
@@ -75,10 +75,10 @@ enum ReadingTheme: String, CaseIterable, Identifiable {
     /// TTS 朗讀時當前段落的柔和底色，避免螢光色
     var highlightColor: Color {
         switch self {
-        case .dark:  Color(hex: "#5B7FA6").opacity(0.22)  // 霧藍
-        case .sepia: Color(hex: "#9C7A45").opacity(0.25)  // 暖琥珀
-        case .light: Color(hex: "#5B7FA6").opacity(0.12)  // 淡霧藍
-        case .gray:  Color(hex: "#7878A0").opacity(0.20)  // 中性藍灰
+        case .dark:  Color(hex: "#5C7A78").opacity(0.22)  // 墨青暈
+        case .sepia: Color(hex: "#9C7A45").opacity(0.25)  // 暖赭暈
+        case .light: Color(hex: "#A63A2E").opacity(0.08)  // 極淡朱砂暈
+        case .gray:  Color(hex: "#5C7A88").opacity(0.20)  // 青墨暈
         }
     }
 
@@ -115,10 +115,10 @@ enum ReadingTheme: String, CaseIterable, Identifiable {
     /// 分隔線 / 邊框色
     var separatorColor: Color {
         switch self {
-        case .dark:  Color(hex: "#2A2A2A")
-        case .sepia: Color(hex: "#2E2420")
-        case .light: Color(hex: "#D8D0C0")
-        case .gray:  Color(hex: "#2E2E36")
+        case .dark:  Color(hex: "#2A2A26")
+        case .sepia: Color(hex: "#322818")
+        case .light: Color(hex: "#DDD5C4")
+        case .gray:  Color(hex: "#2A3034")
         }
     }
 
