@@ -524,13 +524,19 @@ struct ColorHexTests {
 struct NNFontTests {
 
     @Test func readingFamilyAllCases() {
-        #expect(NNFont.ReadingFamily.allCases.count == 3)
+        #expect(NNFont.ReadingFamily.allCases.count == 4)
     }
 
     @Test func readingFamilyDisplayName() {
         #expect(NNFont.ReadingFamily.system.displayName == "System")
         #expect(NNFont.ReadingFamily.pingFang.displayName == "PingFang TC")
         #expect(NNFont.ReadingFamily.notoSans.displayName == "Noto Sans TC")
+        #expect(NNFont.ReadingFamily.songti.displayName == "宋體")
+    }
+
+    @Test func readingFamilySongtiRawValueStable() {
+        // SwiftData 以 rawValue 字串儲存，不可變更
+        #expect(NNFont.ReadingFamily(rawValue: "Songti TC") == .songti)
     }
 
     @Test func readingFamilyFontNotCrash() {
