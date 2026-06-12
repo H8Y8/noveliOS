@@ -153,8 +153,7 @@ struct NarratorPlayerView: View {
     private var bookHeader: some View {
         VStack(spacing: NNSpacing.xs) {
             Text(book.title)
-                .font(NNFont.uiTitle)
-                .fontWeight(.semibold)
+                .font(NNFont.inkTitle(size: 20))
                 .foregroundStyle(.white)
                 .lineLimit(1)
 
@@ -176,6 +175,8 @@ struct NarratorPlayerView: View {
                     RoundedRectangle(cornerRadius: 14)
                         .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
                 )
+                .inkPaper(opacity: 0.05)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
 
             VStack(alignment: .leading, spacing: NNSpacing.sm) {
                 // 狀態標籤
@@ -230,6 +231,7 @@ struct NarratorPlayerView: View {
                     .foregroundStyle(.white.opacity(0.9))
                     .frame(width: 64, height: 64)
             }
+            .buttonStyle(InkButtonStyle())
             .accessibilityLabel("上一段")
             .sensoryFeedback(.impact(weight: .light), trigger: ttsService.currentParagraphIndex)
 
@@ -241,20 +243,22 @@ struct NarratorPlayerView: View {
                 else { ttsService.play() }
             } label: {
                 ZStack {
+                    // 朱砂印章式主播放鍵
                     Circle()
-                        .fill(.white.opacity(0.14))
+                        .fill(NNColor.accent.opacity(0.92))
                         .frame(width: 84, height: 84)
                     Circle()
-                        .strokeBorder(.white.opacity(0.22), lineWidth: 1)
-                        .frame(width: 84, height: 84)
+                        .strokeBorder(Color(hex: "#F4EFE6").opacity(0.35), lineWidth: 1)
+                        .frame(width: 76, height: 76)
                     Image(systemName: ttsService.isPlaying ? NNSymbol.pause : NNSymbol.play)
                         .font(.system(size: 36, weight: .medium))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(hex: "#F4EFE6"))
                         .offset(x: ttsService.isPlaying ? 0 : 2)
                         .contentTransition(.symbolEffect(.replace))
                         .animation(microAnimation, value: ttsService.isPlaying)
                 }
             }
+            .buttonStyle(InkScaleButtonStyle())
             .accessibilityLabel(ttsService.isPlaying ? "暫停" : "播放")
             .sensoryFeedback(.impact(weight: .medium), trigger: ttsService.isPlaying)
 
@@ -269,6 +273,7 @@ struct NarratorPlayerView: View {
                     .foregroundStyle(.white.opacity(0.9))
                     .frame(width: 64, height: 64)
             }
+            .buttonStyle(InkButtonStyle())
             .accessibilityLabel("下一段")
             .sensoryFeedback(.impact(weight: .light), trigger: ttsService.currentParagraphIndex)
         }
@@ -553,6 +558,8 @@ struct NarratorPlayerView: View {
                     RoundedRectangle(cornerRadius: 14)
                         .strokeBorder(.white.opacity(0.1), lineWidth: 0.5)
                 )
+                .inkPaper(opacity: 0.05)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
         )
     }
 
