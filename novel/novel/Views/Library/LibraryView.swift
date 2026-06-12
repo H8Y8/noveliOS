@@ -17,6 +17,7 @@ struct LibraryView: View {
     @State private var isImporting      = false
     @State private var showOnboarding   = !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
     @State private var deleteTrigger    = false
+    @State private var selectedBook: Book?
 
     /// 檔案大小上限（100 MB），超過會警告使用者
     private static let fileSizeLimitBytes: Int = 100 * 1024 * 1024
@@ -78,9 +79,11 @@ struct LibraryView: View {
             } message: {
                 Text("請輸入新的書名")
             }
-            .navigationDestination(for: Book.self) { book in
-                ReaderView(book: book)
-            }
+        }
+        // 使用 fullScreenCover 呈現閱讀器，完全隔離 NavigationStack toolbar 上下文，
+        // 避免 iOS 26 Liquid Glass 浮動按鈕穿透到子 view
+        .fullScreenCover(item: $selectedBook) { book in
+            ReaderView(book: book)
         }
         // 匯入中遮罩放在 NavigationStack 外層，避免導航轉場時殘留
         .overlay {
@@ -119,7 +122,9 @@ struct LibraryView: View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: NNSpacing.cardSpacing) {
                 ForEach(Array(books.enumerated()), id: \.element.id) { index, book in
-                    NavigationLink(value: book) {
+                    Button {
+                        selectedBook = book
+                    } label: {
                         BookCardView(
                             book: book,
                             isPlaying: ttsService.currentBookId == book.id && ttsService.isPlaying,

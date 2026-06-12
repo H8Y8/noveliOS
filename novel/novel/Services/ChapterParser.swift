@@ -5,13 +5,13 @@ struct ChapterParser {
     private static let compiledPatterns: [(regex: Regex<AnyRegexOutput>, hasNumberPrefix: Bool)] = {
         let definitions: [(String, Bool)] = [
             // 帶數字前綴：「1. 第一章 ...」（最可靠，優先使用）
-            (#"^\d+\.\s+第[零一二三四五六七八九十百千萬\d]+[章回節卷集篇]"#, true),
+            (#"^\s*\d+\.\s+第[零一二三四五六七八九十百千萬\d]+[章回節卷集篇]"#, true),
             // 純章節標題：「第一章 ...」、「第146章 ...」
-            (#"^第[零一二三四五六七八九十百千萬\d]+[章回節卷集篇]"#, false),
+            (#"^\s*第[零一二三四五六七八九十百千萬\d]+[章回節卷集篇]"#, false),
             // 英文章節：「Chapter 1」
-            (#"^Chapter\s+\d+"#, false),
+            (#"^\s*Chapter\s+\d+"#, false),
             // 卷：「卷一」
-            (#"^卷[零一二三四五六七八九十百千萬\d]+"#, false),
+            (#"^\s*卷[零一二三四五六七八九十百千萬\d]+"#, false),
         ]
         return definitions.compactMap { (pattern, hasPrefix) in
             guard let regex = try? Regex(pattern) else { return nil }
@@ -27,7 +27,9 @@ struct ChapterParser {
 
         // 依序嘗試每個預編譯 regex，第一個找到足夠章節數的就採用
         for (regex, hasNumberPrefix) in compiledPatterns {
-            let markers = extractMarkers(from: lines, regex: regex, hasNumberPrefix: hasNumberPrefix)
+            var markers = extractMarkers(from: lines, regex: regex, hasNumberPrefix: hasNumberPrefix)
+            // 去重：連續相同標題只保留第一個（部分小說章節標題會重複出現）
+            markers = deduplicateMarkers(markers)
             if markers.count >= minimumChapterCount {
                 return buildChapters(from: markers, totalUTF16Length: content.utf16.count)
             }
@@ -49,7 +51,7 @@ struct ChapterParser {
         var currentUTF16Offset = 0
 
         for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty, trimmed.firstMatch(of: regex) != nil {
                 let title: String
                 if hasNumberPrefix, let 第Idx = trimmed.range(of: "第") {
@@ -84,6 +86,20 @@ struct ChapterParser {
             chapters.append(chapter)
         }
         return chapters
+    }
+
+    /// 去重：連續相同標題只保留第一個
+    private static func deduplicateMarkers(
+        _ markers: [(title: String, utf16Offset: Int)]
+    ) -> [(title: String, utf16Offset: Int)] {
+        guard !markers.isEmpty else { return markers }
+        var result: [(title: String, utf16Offset: Int)] = [markers[0]]
+        for i in 1..<markers.count {
+            if markers[i].title != markers[i - 1].title {
+                result.append(markers[i])
+            }
+        }
+        return result
     }
 
     /// Fallback：將內容依固定字元數分割為章節

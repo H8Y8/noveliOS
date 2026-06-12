@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		AA25589F2F8BDEED008491E3 /* 兼職保鏢.txt in Resources */ = {isa = PBXBuildFile; fileRef = AA25589E2F8BDEED008491E3 /* 兼職保鏢.txt */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		AADD6AC92F5883ED00A49AC5 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,6 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		AA25589E2F8BDEED008491E3 /* 兼職保鏢.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "兼職保鏢.txt"; sourceTree = "<group>"; };
 		AADD6ABB2F5883EB00A49AC5 /* novel.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = novel.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AADD6AC82F5883ED00A49AC5 /* novelTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = novelTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AADD6AD22F5883ED00A49AC5 /* novelUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = novelUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -92,6 +97,7 @@
 				AADD6ACB2F5883ED00A49AC5 /* novelTests */,
 				AADD6AD52F5883ED00A49AC5 /* novelUITests */,
 				AADD6ABC2F5883EB00A49AC5 /* Products */,
+				AA25589E2F8BDEED008491E3 /* 兼職保鏢.txt */,
 			);
 			sourceTree = "<group>";
 		};
@@ -226,6 +232,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA25589F2F8BDEED008491E3 /* 兼職保鏢.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

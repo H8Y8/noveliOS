@@ -37,15 +37,15 @@ struct ScrollReaderView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: paragraphSpacing) {
-                    // 頂部安全距離（工具列高 + 漸層高 + 呼吸空間）
-                    Color.clear.frame(height: NNSpacing.toolbarHeight + 28 + NNSpacing.md)
+                    // 頂部留白：僅保留少量間距，文字可延伸至工具列後方
+                    Color.clear.frame(height: NNSpacing.sm)
 
                     ForEach(0..<paragraphs.count, id: \.self) { index in
                         paragraphView(index: index, text: paragraphs[index])
                     }
 
-                    // 底部安全距離（底部工具列淨空）
-                    Color.clear.frame(height: NNSpacing.bottomToolbarHeight + 32 + NNSpacing.md)
+                    // 底部留白：僅保留少量間距
+                    Color.clear.frame(height: NNSpacing.sm)
                 }
             }
             .opacity(contentVisible ? 1 : 0)
