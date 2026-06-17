@@ -119,7 +119,7 @@ struct ChapterListSheet: View {
     private var sidebarHeader: some View {
         HStack(alignment: .center) {
             Text("目錄")
-                .font(NNFont.uiTitle)
+                .font(NNFont.inkTitle(size: 20))
                 .foregroundStyle(NNColor.textPrimary)
 
             Spacer()
@@ -290,8 +290,7 @@ struct ChapterListSheet: View {
                 .clipShape(Capsule())
 
             Text(title)
-                .font(NNFont.uiSubheadline)
-                .fontWeight(.semibold)
+                .font(NNFont.inkTitle(size: 14))
                 .foregroundStyle(NNColor.accentLight)
                 .lineLimit(1)
 
@@ -334,11 +333,11 @@ struct ChapterListSheet: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .lineLimit(1)
 
-                // 狀態指示
+                // 狀態指示：當前章節朱砂墨點
                 if isCurrent {
-                    Image(systemName: "book.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(NNColor.accent)
+                    Circle()
+                        .fill(NNColor.accent)
+                        .frame(width: 6, height: 6)
                 } else if isRead {
                     Image(systemName: "checkmark")
                         .font(.system(size: 10, weight: .medium))

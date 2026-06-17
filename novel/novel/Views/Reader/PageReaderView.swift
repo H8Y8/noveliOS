@@ -258,9 +258,8 @@ private struct PageContentView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 頂部工具列淨空
-            Color.clear
-                .frame(height: NNSpacing.toolbarHeight + 28 + NNSpacing.md)
+            // 頂部僅保留少量間距（文字延伸至工具列後方，工具列半透明覆蓋）
+            Spacer(minLength: NNSpacing.sm)
 
             // 段落文字
             VStack(alignment: .leading, spacing: paragraphSpacing) {
@@ -277,11 +276,7 @@ private struct PageContentView: View {
                 .font(NNFont.uiCaption2)
                 .foregroundStyle(theme.secondaryTextColor)
                 .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.bottom, NNSpacing.xs)
-
-            // 底部工具列淨空
-            Color.clear
-                .frame(height: NNSpacing.bottomToolbarHeight + 32 + NNSpacing.md)
+                .padding(.bottom, NNSpacing.sm)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(theme.backgroundColor)

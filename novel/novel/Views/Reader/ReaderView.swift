@@ -75,9 +75,16 @@ struct ReaderView: View {
             // 閱讀背景
             theme.backgroundColor.ignoresSafeArea()
 
-            // 閱讀內容（快取就緒前不渲染，避免先顯示第一頁再跳轉）
+            // 閱讀內容（快取就緒前顯示載入指示器）
             if cachedAllParagraphs.isEmpty {
-                Color.clear
+                VStack(spacing: NNSpacing.md) {
+                    ProgressView()
+                        .tint(theme.secondaryTextColor)
+                    Text("載入中…")
+                        .font(NNFont.uiCaption)
+                        .foregroundStyle(theme.secondaryTextColor)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if settings.readingMode == .pageCurl && !cachedPages.isEmpty {
                 PageReaderView(
                     paragraphs: cachedAllParagraphs,
@@ -145,6 +152,7 @@ struct ReaderView: View {
             .allowsHitTesting(false)
         }
         .toolbar(.hidden, for: .navigationBar)
+        .navigationBarBackButtonHidden(true)
         .statusBarHidden(!showToolbars)
         .onAppear {
             ttsService.currentBookId = book.id
@@ -156,15 +164,17 @@ struct ReaderView: View {
             restoreTTSProviderSettings()
             setupNowPlaying()
 
-            // 非同步建立快取，避免主執行緒阻塞造成 UI 凍結
+            // 在主執行緒先取得輕量資料（不觸碰 .externalStorage 的 content）
             cachedSortedChapters = book.sortedChapters
             let savedOffset = book.lastReadOffset
-            let content = book.content
+            let bookId = book.id
             let chapterData = cachedSortedChapters.map {
                 (startOffset: $0.startOffset, endOffset: $0.endOffset)
             }
 
+            // content 存取 + 快取建立全部在背景執行緒，避免主執行緒阻塞
             buildCacheTask = Task.detached(priority: .userInitiated) {
+                let content = await MainActor.run { book.content }
                 let (paragraphs, indices) = Self.buildCacheInBackground(
                     content: content,
                     chapterData: chapterData
@@ -173,14 +183,12 @@ struct ReaderView: View {
                     cachedAllParagraphs = paragraphs
                     cachedChapterStartIndices = indices
                     visibleParagraphIndex = savedOffset
-                    // 快取就緒後才允許滾動到儲存位置
                     if savedOffset > 0 && savedOffset < paragraphs.count {
                         scrollCommand = ScrollCommand(index: savedOffset)
                     }
                     isReadyToSaveProgress = true
                     recomputePages()
-                    // 從磁碟讀取合成進度，供工具列按鈕顯示正確狀態
-                    synthesisService.loadStatus(bookId: book.id, paragraphs: paragraphs)
+                    synthesisService.loadStatus(bookId: bookId, paragraphs: paragraphs)
                 }
             }
         }
@@ -253,16 +261,25 @@ struct ReaderView: View {
                         .foregroundStyle(theme.textColor)
                         .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
                 }
-                .accessibilityLabel("返回")
+                .buttonStyle(InkButtonStyle())
+            .accessibilityLabel("返回")
 
                 Spacer()
 
-                // 章節標題
-                Text(currentChapter?.title ?? book.title)
-                    .font(NNFont.uiSubheadline)
-                    .foregroundStyle(theme.secondaryTextColor)
-                    .lineLimit(1)
-                    .padding(.horizontal, NNSpacing.sm)
+                // 章節標題（卷軸標籤式：宋體 + 左右細豎線）
+                HStack(spacing: NNSpacing.sm) {
+                    Rectangle()
+                        .fill(theme.separatorColor)
+                        .frame(width: 1, height: 14)
+                    Text(currentChapter?.title ?? book.title)
+                        .font(NNFont.inkTitle(size: 14, weight: .regular))
+                        .foregroundStyle(theme.secondaryTextColor)
+                        .lineLimit(1)
+                    Rectangle()
+                        .fill(theme.separatorColor)
+                        .frame(width: 1, height: 14)
+                }
+                .padding(.horizontal, NNSpacing.sm)
 
                 Spacer()
 
@@ -275,7 +292,8 @@ struct ReaderView: View {
                         .foregroundStyle(theme.secondaryTextColor)
                         .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
                 }
-                .accessibilityLabel("設定")
+                .buttonStyle(InkButtonStyle())
+            .accessibilityLabel("設定")
 
                 // 全書合成按鈕（僅 Edge / Azure 引擎）
                 if settings.ttsProviderType == .edge || settings.ttsProviderType == .azure {
@@ -322,7 +340,8 @@ struct ReaderView: View {
                         .foregroundStyle(theme.textColor)
                         .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
                 }
-                .accessibilityLabel("搜尋")
+                .buttonStyle(InkButtonStyle())
+            .accessibilityLabel("搜尋")
 
                 // 書籤按鈕
                 Button {
@@ -333,7 +352,8 @@ struct ReaderView: View {
                         .foregroundStyle(theme.textColor)
                         .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
                 }
-                .accessibilityLabel("書籤")
+                .buttonStyle(InkButtonStyle())
+            .accessibilityLabel("書籤")
 
                 // 目錄按鈕
                 Button {
@@ -346,7 +366,8 @@ struct ReaderView: View {
                         .foregroundStyle(theme.textColor)
                         .frame(width: NNSpacing.minTouchTarget, height: NNSpacing.minTouchTarget)
                 }
-                .accessibilityLabel("目錄")
+                .buttonStyle(InkButtonStyle())
+            .accessibilityLabel("目錄")
             }
             .padding(.horizontal, NNSpacing.sm)
             .frame(height: NNSpacing.toolbarHeight)
@@ -496,21 +517,23 @@ struct ReaderView: View {
                     .frame(width: NNSpacing.ttsSecondaryButtonSize,
                            height: NNSpacing.ttsSecondaryButtonSize)
             }
+            .buttonStyle(InkButtonStyle())
             .accessibilityLabel("上一段")
             .sensoryFeedback(.impact(weight: .light), trigger: ttsService.currentParagraphIndex)
 
             Spacer()
 
-            // 播放 / 暫停（主要按鈕，52pt 觸控面積）
+            // 播放 / 暫停（主要按鈕，52pt 觸控面積，朱砂點睛）
             Button {
                 toggleTTS()
             } label: {
                 Image(systemName: ttsService.isPlaying ? NNSymbol.pause : NNSymbol.play)
                     .font(.system(size: 30, weight: .medium))
-                    .foregroundStyle(theme.textColor)
+                    .foregroundStyle(NNColor.accent)
                     .frame(width: NNSpacing.ttsButtonSize, height: NNSpacing.ttsButtonSize)
                     .contentShape(Rectangle())
             }
+            .buttonStyle(InkButtonStyle())
             .accessibilityLabel(ttsService.isPlaying ? "暫停" : "播放")
             .sensoryFeedback(.impact(weight: .medium), trigger: ttsService.isPlaying)
 
@@ -526,6 +549,7 @@ struct ReaderView: View {
                     .frame(width: NNSpacing.ttsSecondaryButtonSize,
                            height: NNSpacing.ttsSecondaryButtonSize)
             }
+            .buttonStyle(InkButtonStyle())
             .accessibilityLabel("下一段")
             .sensoryFeedback(.impact(weight: .light), trigger: ttsService.currentParagraphIndex)
         }
@@ -584,7 +608,9 @@ struct ReaderView: View {
         let lines = content.split(separator: "\n", omittingEmptySubsequences: false)
 
         var paragraphs: [String] = []
+        paragraphs.reserveCapacity(lines.count)
         var paragraphUTF16Offsets: [Int] = []
+        paragraphUTF16Offsets.reserveCapacity(lines.count)
         var currentUTF16Offset = 0
 
         for line in lines {
@@ -596,11 +622,22 @@ struct ReaderView: View {
             currentUTF16Offset += line.utf16.count + 1
         }
 
-        // 將每個章節的 UTF-16 startOffset 映射到段落索引
+        // 將每個章節的 UTF-16 startOffset 用二分搜尋映射到段落索引
+        // paragraphUTF16Offsets 已排序（UTF-16 offset 遞增），可直接二分搜尋
         var startIndices: [Int] = []
+        startIndices.reserveCapacity(chapterData.count)
         for chapter in chapterData {
-            let idx = paragraphUTF16Offsets.firstIndex(where: { $0 >= chapter.startOffset }) ?? 0
-            startIndices.append(idx)
+            let target = chapter.startOffset
+            var lo = 0, hi = paragraphUTF16Offsets.count
+            while lo < hi {
+                let mid = lo + (hi - lo) / 2
+                if paragraphUTF16Offsets[mid] < target {
+                    lo = mid + 1
+                } else {
+                    hi = mid
+                }
+            }
+            startIndices.append(lo < paragraphUTF16Offsets.count ? lo : 0)
         }
 
         return (paragraphs, startIndices)
@@ -717,11 +754,12 @@ struct ReaderView: View {
             return
         }
 
-        let topZone = NNSpacing.toolbarHeight + 28 + NNSpacing.md      // 100pt
-        let bottomZone = NNSpacing.bottomToolbarHeight + 32 + NNSpacing.md // 148pt
+        // 全螢幕排版：僅扣除少量上下邊距和頁碼區域，文字延伸至工具列後方
+        let topMargin: CGFloat = NNSpacing.sm
+        let bottomMargin: CGFloat = NNSpacing.sm
         let pageNumberZone: CGFloat = 24
         let textWidth = readerSize.width - NNSpacing.readerHorizontal * 2
-        let textHeight = readerSize.height - topZone - bottomZone - pageNumberZone
+        let textHeight = readerSize.height - topMargin - bottomMargin - pageNumberZone
 
         guard textHeight > 0 else { return }
 
@@ -785,3 +823,4 @@ struct ReaderView: View {
         book.readingProgress = min(Double(visibleParagraphIndex) / Double(total), 1.0)
     }
 }
+

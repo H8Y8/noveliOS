@@ -11,3 +11,42 @@ services:
       - ALLOW_ANY_VOICE=true
       - REQUIRE_API_KEY=false
     restart: unless-stopped
+
+  edge-tts-2:
+    image: travisvn/openai-edge-tts:latest
+    container_name: edge-tts-server-2
+    ports:
+      - "5051:5050"
+    environment:
+      - DEFAULT_VOICE=zh-TW-HsiaoChenNeural
+      - DEFAULT_RESPONSE_FORMAT=mp3
+      - DEFAULT_SPEED=1.0
+      - ALLOW_ANY_VOICE=true
+      - REQUIRE_API_KEY=false
+    restart: unless-stopped
+
+  edge-tts-3:
+    image: travisvn/openai-edge-tts:latest
+    container_name: edge-tts-server-3
+    ports:
+      - "5052:5050"
+    environment:
+      - DEFAULT_VOICE=zh-TW-HsiaoChenNeural
+      - DEFAULT_RESPONSE_FORMAT=mp3
+      - DEFAULT_SPEED=1.0
+      - ALLOW_ANY_VOICE=true
+      - REQUIRE_API_KEY=false
+    restart: unless-stopped
+
+  edge-tts-4:
+    image: travisvn/openai-edge-tts:latest
+    container_name: edge-tts-server-4
+    ports:
+      - "5053:5050"
+    environment:
+      - DEFAULT_VOICE=zh-TW-HsiaoChenNeural
+      - DEFAULT_RESPONSE_FORMAT=mp3
+      - DEFAULT_SPEED=1.0
+      - ALLOW_ANY_VOICE=true
+      - REQUIRE_API_KEY=false
+    restart: unless-stopped

@@ -6,7 +6,9 @@ struct DatabaseErrorView: View {
 
     var body: some View {
         ZStack {
-            NNColor.appBackground.ignoresSafeArea()
+            NNColor.appBackground
+                .inkPaper()
+                .ignoresSafeArea()
 
             VStack(spacing: NNSpacing.lg) {
                 Image(systemName: "exclamationmark.triangle")
@@ -15,7 +17,7 @@ struct DatabaseErrorView: View {
 
                 VStack(spacing: NNSpacing.sm) {
                     Text("資料庫初始化失敗")
-                        .font(NNFont.uiTitle)
+                        .font(NNFont.inkTitle(size: 20))
                         .foregroundStyle(NNColor.textPrimary)
 
                     Text("請嘗試重新啟動 App，若問題持續，可能需要重新安裝。")

@@ -1,13 +1,14 @@
 import SwiftUI
 import UIKit
 
-// MARK: - NovelNarrator Design System
-// 設計原則：閱讀優先、暗色系為主、台灣日系簡潔美學
-// 禁止：紅色/金色主色、Tab Bar、FAB、圓角超過 16pt 的卡片、第三方動畫庫
+// MARK: - NovelNarrator Design System「墨韻」
+// 設計原則：閱讀優先、暗色系為主、中國水墨美學——墨分五色、朱砂一點
+// 墨色皆偏暖灰（宣紙米調），朱砂僅作小面積點綴（<5%：播放鍵、印章、選中態）
+// 禁止：大面積紅/金、Tab Bar、FAB、圓角超過 16pt 的卡片、第三方動畫庫
 
 // MARK: - Brand Colors
 // 用於書庫、非閱讀場景的全局品牌色彩。
-// 主色：霧鋼藍（不飽和，書卷氣，呼應台灣獨立書店質感）
+// 點綴色：朱砂印泥紅（去飽和，呼應書畫印章，非正紅）
 
 enum NNColor {
 
@@ -24,51 +25,51 @@ enum NNColor {
 
     // MARK: Brand
 
-    /// 主強調色：霧鋼藍 #5B7FA6
-    static let accent      = Color(hex: "#5B7FA6")
+    /// 點綴色：朱砂印泥紅（Dark 模式微亮以維持對比）
+    static let accent      = adaptive(light: "#A63A2E", dark: "#C04A3C")
     /// 強調色亮版（hover / 選中態）
-    static let accentLight = Color(hex: "#7FA1C8")
+    static let accentLight = Color(hex: "#C04A3C")
     /// 強調色暗版（pressed 態）
-    static let accentDark  = Color(hex: "#3F607F")
+    static let accentDark  = Color(hex: "#7E2B22")
 
     // MARK: Library Surface（書庫介面，支援 Light / Dark）
 
-    /// App 全局底色（Dark: 近黑 / Light: 暖白）
-    static let appBackground    = adaptive(light: "#F5F0EA", dark: "#0B0B0E")
+    /// App 全局底色（Light: 宣紙米 / Dark: 夜宣黑）
+    static let appBackground    = adaptive(light: "#F4EFE6", dark: "#121210")
     /// 書卡背景
-    static let cardBackground   = adaptive(light: "#FFFFFF", dark: "#16161C")
+    static let cardBackground   = adaptive(light: "#FBF7EE", dark: "#1C1C19")
     /// 卡片 hover / 選中
-    static let cardHighlight    = adaptive(light: "#F0F0F5", dark: "#1E1E28")
+    static let cardHighlight    = adaptive(light: "#EFE8DA", dark: "#26261F")
     /// 分隔線
-    static let separator        = adaptive(light: "#D8D8E0", dark: "#252530")
+    static let separator        = adaptive(light: "#DDD5C4", dark: "#2A2A26")
 
-    // MARK: Text（書庫文字，支援 Light / Dark）
+    // MARK: Text（書庫文字，支援 Light / Dark）— 濃墨/重墨/淡墨三階
 
-    static let textPrimary      = adaptive(light: "#1A1A2E", dark: "#E0E0E8")
-    static let textSecondary    = adaptive(light: "#606070", dark: "#808090")
-    static let textTertiary     = adaptive(light: "#A0A0B0", dark: "#484858")
+    static let textPrimary      = adaptive(light: "#2B2B26", dark: "#D6D4CC")
+    static let textSecondary    = adaptive(light: "#6E6E64", dark: "#8A8A82")
+    static let textTertiary     = adaptive(light: "#A8A498", dark: "#55554E")
 
     // MARK: Status
 
-    /// 進行中（TTS 播放聲波）
-    static let playing          = Color(hex: "#5B7FA6")
-    /// 進度條填充
-    static let progressFill     = Color(hex: "#5B7FA6")
+    /// 進行中（TTS 播放聲波）— 墨色
+    static let playing          = adaptive(light: "#4A4A45", dark: "#B0AEA4")
+    /// 進度條填充 — 墨色（完成端朱砂點由 InkProgressBar 處理）
+    static let progressFill     = adaptive(light: "#4A4A45", dark: "#B0AEA4")
     /// 進度條軌道
-    static let progressTrack    = adaptive(light: "#D8D8E0", dark: "#252530")
+    static let progressTrack    = adaptive(light: "#DDD5C4", dark: "#2A2A26")
 
-    // MARK: Book Cover Palettes（演算法生成書封，8 組漸層）
-    // 使用書名 hash % 8 選色組，形成獨特但低調的抽象封面
+    // MARK: Book Cover Palettes（遠山墨色，8 組漸層）
+    // 使用書名 hash % 8 選色組，配合 InkCoverView 畫遠山剪影
 
     static let coverPalettes: [(Color, Color)] = [
-        (Color(hex: "#1A2744"), Color(hex: "#2E4A7A")),  // 深藍
-        (Color(hex: "#1E2A1E"), Color(hex: "#2A4A2A")),  // 深墨綠
-        (Color(hex: "#2A1E2A"), Color(hex: "#4A2A4A")),  // 深紫
-        (Color(hex: "#2A2A1E"), Color(hex: "#484830")),  // 橄欖暗
-        (Color(hex: "#1E2A2A"), Color(hex: "#2A4444")),  // 深青
-        (Color(hex: "#251E1A"), Color(hex: "#443028")),  // 深棕
-        (Color(hex: "#1E1E2A"), Color(hex: "#2E2E4A")),  // 深靛
-        (Color(hex: "#221A1E"), Color(hex: "#3A2830")),  // 深玫棕
+        (Color(hex: "#2A3438"), Color(hex: "#46565C")),  // 墨青
+        (Color(hex: "#252C3A"), Color(hex: "#3E4A60")),  // 黛藍
+        (Color(hex: "#352A22"), Color(hex: "#54453A")),  // 赭墨
+        (Color(hex: "#2E2A20"), Color(hex: "#4A4434")),  // 茶墨
+        (Color(hex: "#2C2C28"), Color(hex: "#4A4A44")),  // 灰墨
+        (Color(hex: "#243430"), Color(hex: "#3C544E")),  // 青碧
+        (Color(hex: "#2E2832"), Color(hex: "#4A4252")),  // 紫墨
+        (Color(hex: "#262420"), Color(hex: "#403C34")),  // 焦墨
     ]
 }
 
@@ -82,10 +83,16 @@ enum NNFont {
         case system   = "System"
         case pingFang = "PingFang TC"
         case notoSans = "Noto Sans TC"
+        case songti   = "Songti TC"
 
         var id: String { rawValue }
 
-        var displayName: String { rawValue }
+        var displayName: String {
+            switch self {
+            case .songti: "宋體"
+            default:      rawValue
+            }
+        }
 
         func font(size: CGFloat, weight: Font.Weight = .regular) -> Font {
             switch self {
@@ -95,8 +102,23 @@ enum NNFont {
                 return .custom("PingFangTC-Regular", size: size)
             case .notoSans:
                 return .custom("NotoSansTC-Regular", size: size)
+            case .songti:
+                return .custom("STSongti-TC-Regular", size: size)
             }
         }
+    }
+
+    // MARK: Ink Title（水墨標題字型）
+
+    /// 水墨標題字型（宋體，iOS 內建），用於畫面標題/書名/章節名/主題名。
+    /// 字型缺失時退回系統 serif。
+    static func inkTitle(size: CGFloat, weight: Font.Weight = .semibold) -> Font {
+        let name = (weight == .bold || weight == .semibold)
+            ? "STSongti-TC-Bold" : "STSongti-TC-Regular"
+        if UIFont(name: name, size: size) != nil {
+            return .custom(name, size: size)
+        }
+        return .system(size: size, weight: weight, design: .serif)
     }
 
     // MARK: Reading Scale（閱讀排版）
@@ -217,6 +239,15 @@ enum NNAnimation {
 
     /// 側欄滑入
     static let sidebarSlide   = Animation.easeOut(duration: 0.25)
+
+    /// 墨暈按壓擴散
+    static let inkSpread      = Animation.easeOut(duration: 0.35)
+
+    /// 書卡墨滴暈開入場（scale + opacity + blur 消散）
+    static let inkDropAppear  = Animation.easeOut(duration: 0.45)
+    static func inkDrop(index: Int) -> Animation {
+        inkDropAppear.delay(Double(index) * 0.06)
+    }
 }
 
 // MARK: - SF Symbols Reference

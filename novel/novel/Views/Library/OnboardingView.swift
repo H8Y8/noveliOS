@@ -7,30 +7,35 @@ struct OnboardingView: View {
     @State private var currentPage = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let pages: [(icon: String, title: String, description: String)] = [
-        ("books.vertical", "匯入你的小說", "支援 .txt 格式，Big5 / GBK / UTF-8 自動偵測"),
-        ("book.fill", "沉浸閱讀體驗", "四種主題色彩、可調字型大小與行距，支援捲動與翻頁模式"),
-        ("waveform", "AI 說書人", "多種語音引擎朗讀，支援背景播放與鎖屏控制"),
+    private let pages: [(icon: String, seal: String, title: String, description: String)] = [
+        ("books.vertical", "卷", "匯入你的小說", "支援 .txt 格式，Big5 / GBK / UTF-8 自動偵測"),
+        ("book.fill", "境", "沉浸閱讀體驗", "水墨四境主題、可調字型大小與行距，支援捲動與翻頁模式"),
+        ("waveform", "聽", "AI 說書人", "多種語音引擎朗讀，支援背景播放與鎖屏控制"),
     ]
 
     var body: some View {
         ZStack {
-            NNColor.appBackground.ignoresSafeArea()
+            NNColor.appBackground
+                .inkPaper()
+                .ignoresSafeArea()
 
             VStack(spacing: NNSpacing.xl) {
                 Spacer()
 
-                // 圖標
-                Image(systemName: pages[currentPage].icon)
-                    .font(.system(size: 72, weight: .thin))
-                    .foregroundStyle(NNColor.accent)
-                    .frame(height: 100)
-                    .id(currentPage) // 讓 SwiftUI 重建以觸發 transition
+                // 印章 + 圖標
+                VStack(spacing: NNSpacing.md) {
+                    SealView(text: pages[currentPage].seal, size: 56)
+                    Image(systemName: pages[currentPage].icon)
+                        .font(.system(size: 40, weight: .thin))
+                        .foregroundStyle(NNColor.textSecondary)
+                }
+                .frame(height: 120)
+                .id(currentPage) // 讓 SwiftUI 重建以觸發 transition
 
                 // 標題 + 描述
                 VStack(spacing: NNSpacing.sm) {
                     Text(pages[currentPage].title)
-                        .font(NNFont.uiTitle)
+                        .font(NNFont.inkTitle(size: 22))
                         .foregroundStyle(NNColor.textPrimary)
 
                     Text(pages[currentPage].description)
@@ -65,12 +70,13 @@ struct OnboardingView: View {
                     Text(currentPage < pages.count - 1 ? "下一步" : "開始使用")
                         .font(NNFont.uiBody)
                         .fontWeight(.medium)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(hex: "#F4EFE6"))
                         .frame(maxWidth: .infinity)
                         .frame(height: NNSpacing.minTouchTarget)
                         .background(NNColor.accent)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
+                .buttonStyle(InkScaleButtonStyle())
                 .padding(.horizontal, NNSpacing.xl)
                 .accessibilityLabel(currentPage < pages.count - 1 ? "下一步" : "開始使用")
 

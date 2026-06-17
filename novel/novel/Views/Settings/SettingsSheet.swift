@@ -23,7 +23,9 @@ struct SettingsSheet: View {
 
     var body: some View {
         ZStack {
-            NNColor.appBackground.ignoresSafeArea()
+            NNColor.appBackground
+                .inkPaper()
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 sheetHeader
@@ -56,7 +58,7 @@ struct SettingsSheet: View {
 
             HStack {
                 Text("設定")
-                    .font(NNFont.uiTitle)
+                    .font(NNFont.inkTitle(size: 20))
                     .foregroundStyle(NNColor.textPrimary)
 
                 Spacer()
@@ -129,7 +131,7 @@ struct SettingsSheet: View {
                             }
 
                             Text(themeOption.displayName)
-                                .font(NNFont.uiCaption)
+                                .font(NNFont.inkTitle(size: 13, weight: .regular))
                                 .foregroundStyle(isSelected ? NNColor.accentLight : NNColor.textSecondary)
 
                             Text(themeOption.displayDescription)
@@ -177,12 +179,12 @@ struct SettingsSheet: View {
                         .font(.system(size: 9))
                 }
             }
-            .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
+            .foregroundStyle(isSelected ? Color(hex: "#F4EFE6") : NNColor.textSecondary)
             .padding(.horizontal, 14)
             .frame(maxWidth: .infinity, minHeight: NNSpacing.minTouchTarget, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
+                    .fill(isSelected ? NNColor.accent : NNColor.cardBackground)
             )
         }
         .buttonStyle(.plain)
@@ -257,6 +259,7 @@ struct SettingsSheet: View {
                 fontChip(label: "系統預設", value: "System")
                 fontChip(label: "PingFang", value: "PingFang TC")
                 fontChip(label: "Noto Sans", value: "Noto Sans TC")
+                fontChip(label: "宋體", value: "Songti TC")
             }
             .sensoryFeedback(.selection, trigger: settings.fontFamily)
         }
@@ -272,12 +275,12 @@ struct SettingsSheet: View {
             Text(label)
                 .font(NNFont.uiCaption)
                 .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
+                .foregroundStyle(isSelected ? Color(hex: "#F4EFE6") : NNColor.textSecondary)
                 .padding(.horizontal, 12)
                 .frame(minHeight: NNSpacing.minTouchTarget)
                 .background(
                     Capsule()
-                        .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
+                        .fill(isSelected ? NNColor.accent : NNColor.cardBackground)
                 )
         }
         .buttonStyle(.plain)
@@ -313,12 +316,12 @@ struct SettingsSheet: View {
                             Text(spacing.displayName)
                                 .font(.system(size: 9))
                         }
-                        .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
+                        .foregroundStyle(isSelected ? Color(hex: "#F4EFE6") : NNColor.textSecondary)
                         .padding(.horizontal, 12)
                         .frame(minHeight: NNSpacing.minTouchTarget)
                         .background(
                             Capsule()
-                                .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
+                                .fill(isSelected ? NNColor.accent : NNColor.cardBackground)
                         )
                     }
                     .buttonStyle(.plain)
@@ -386,12 +389,12 @@ struct SettingsSheet: View {
                 Text(subtitle)
                     .font(.system(size: 9))
             }
-            .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
+            .foregroundStyle(isSelected ? Color(hex: "#F4EFE6") : NNColor.textSecondary)
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, minHeight: NNSpacing.minTouchTarget)
             .background(
                 Capsule()
-                    .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
+                    .fill(isSelected ? NNColor.accent : NNColor.cardBackground)
             )
         }
         .buttonStyle(.plain)
@@ -494,12 +497,12 @@ struct SettingsSheet: View {
             Text(label)
                 .font(NNFont.uiCaption)
                 .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
+                .foregroundStyle(isSelected ? Color(hex: "#F4EFE6") : NNColor.textSecondary)
                 .padding(.horizontal, 12)
                 .frame(minHeight: NNSpacing.minTouchTarget)
                 .background(
                     Capsule()
-                        .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
+                        .fill(isSelected ? NNColor.accent : NNColor.cardBackground)
                 )
         }
         .buttonStyle(.plain)
@@ -590,12 +593,12 @@ struct SettingsSheet: View {
             Text(label)
                 .font(NNFont.uiCaption)
                 .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
+                .foregroundStyle(isSelected ? Color(hex: "#F4EFE6") : NNColor.textSecondary)
                 .padding(.horizontal, 12)
                 .frame(minHeight: NNSpacing.minTouchTarget)
                 .background(
                     Capsule()
-                        .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
+                        .fill(isSelected ? NNColor.accent : NNColor.cardBackground)
                 )
         }
         .buttonStyle(.plain)
@@ -639,12 +642,12 @@ struct SettingsSheet: View {
             Text(label)
                 .font(NNFont.uiCaption)
                 .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundStyle(isSelected ? Color.black.opacity(0.85) : NNColor.textSecondary)
+                .foregroundStyle(isSelected ? Color(hex: "#F4EFE6") : NNColor.textSecondary)
                 .padding(.horizontal, 12)
                 .frame(minHeight: NNSpacing.minTouchTarget)
                 .background(
                     Capsule()
-                        .fill(isSelected ? NNColor.accentLight : NNColor.cardBackground)
+                        .fill(isSelected ? NNColor.accent : NNColor.cardBackground)
                 )
         }
         .buttonStyle(.plain)
@@ -801,8 +804,7 @@ struct SettingsSheet: View {
                     .font(.system(size: 13))
                     .foregroundStyle(NNColor.textTertiary)
                 Text(title)
-                    .font(NNFont.uiSubheadline)
-                    .fontWeight(.medium)
+                    .font(NNFont.inkTitle(size: 14, weight: .regular))
                     .foregroundStyle(NNColor.textSecondary)
             }
 

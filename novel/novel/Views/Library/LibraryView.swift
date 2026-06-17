@@ -17,6 +17,7 @@ struct LibraryView: View {
     @State private var isImporting      = false
     @State private var showOnboarding   = !UserDefaults.standard.bool(forKey: "hasSeenOnboarding")
     @State private var deleteTrigger    = false
+    @State private var selectedBook: Book?
 
     /// 檔案大小上限（100 MB），超過會警告使用者
     private static let fileSizeLimitBytes: Int = 100 * 1024 * 1024
@@ -31,7 +32,9 @@ struct LibraryView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                NNColor.appBackground.ignoresSafeArea()
+                NNColor.appBackground
+                    .inkPaper()
+                    .ignoresSafeArea()
 
                 if books.isEmpty {
                     emptyStateView
@@ -51,6 +54,7 @@ struct LibraryView: View {
                             .foregroundStyle(NNColor.accent)
                             .imageScale(.medium)
                     }
+                    .buttonStyle(InkButtonStyle())
                     .accessibilityLabel("匯入小說")
                     .disabled(isImporting)
                 }
@@ -78,9 +82,11 @@ struct LibraryView: View {
             } message: {
                 Text("請輸入新的書名")
             }
-            .navigationDestination(for: Book.self) { book in
-                ReaderView(book: book)
-            }
+        }
+        // 使用 fullScreenCover 呈現閱讀器，完全隔離 NavigationStack toolbar 上下文，
+        // 避免 iOS 26 Liquid Glass 浮動按鈕穿透到子 view
+        .fullScreenCover(item: $selectedBook) { book in
+            ReaderView(book: book)
         }
         // 匯入中遮罩放在 NavigationStack 外層，避免導航轉場時殘留
         .overlay {
@@ -119,14 +125,16 @@ struct LibraryView: View {
         ScrollView {
             LazyVGrid(columns: columns, spacing: NNSpacing.cardSpacing) {
                 ForEach(Array(books.enumerated()), id: \.element.id) { index, book in
-                    NavigationLink(value: book) {
+                    Button {
+                        selectedBook = book
+                    } label: {
                         BookCardView(
                             book: book,
                             isPlaying: ttsService.currentBookId == book.id && ttsService.isPlaying,
                             appearIndex: index
                         )
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(InkScaleButtonStyle())
                     .disabled(isImporting)
                     .contextMenu {
                         Button {
@@ -158,16 +166,15 @@ struct LibraryView: View {
         VStack(spacing: NNSpacing.lg) {
             Spacer()
 
-            Image(systemName: "books.vertical")
-                .font(.system(size: 60, weight: .thin))
-                .foregroundStyle(NNColor.textTertiary)
+            SealView(text: "書", size: 64)
+                .accessibilityHidden(true)
 
             VStack(spacing: NNSpacing.sm) {
-                Text("書架是空的")
-                    .font(NNFont.uiTitle)
+                Text("書齋虛位以待")
+                    .font(NNFont.inkTitle(size: 22))
                     .foregroundStyle(NNColor.textPrimary)
 
-                Text("匯入 .txt 格式的小說\n開始你的閱讀之旅")
+                Text("匯入 .txt 格式的小說\n展卷，入墨色山水")
                     .font(NNFont.uiBody)
                     .foregroundStyle(NNColor.textSecondary)
                     .multilineTextAlignment(.center)
@@ -182,12 +189,13 @@ struct LibraryView: View {
                         .fontWeight(.medium)
                 }
                 .font(NNFont.uiBody)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color(hex: "#F4EFE6"))
                 .padding(.horizontal, NNSpacing.xl)
                 .frame(minHeight: NNSpacing.minTouchTarget)
                 .background(NNColor.accent)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
+            .buttonStyle(InkScaleButtonStyle())
             .accessibilityLabel("匯入小說")
 
             Spacer()
